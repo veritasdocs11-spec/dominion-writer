@@ -131,9 +131,21 @@ export function LoginForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="login-password" className="text-sm font-medium" style={{ color: '#EEF2FF' }}>
-                Password
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="login-password" className="text-sm font-medium" style={{ color: '#EEF2FF' }}>
+                  Password
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => toast.info('Please contact support@veritasdocs.com to reset your password.')}
+                  className="text-xs transition-colors"
+                  style={{ color: '#4F8EF7' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#7EB3FA' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4F8EF7' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: '#6677AA' }} />
                 <Input

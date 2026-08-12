@@ -91,7 +91,7 @@ export function BookWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          prompt: `Write a compelling book description (2-3 paragraphs) for a ${form.style} ${form.bookType} book titled "${form.title}"${form.subtitle ? ` with subtitle "${form.subtitle}"` : ''}${form.authorName ? ` by ${form.authorName}` : ''}. The book is in ${form.language}. Write the description in ${form.language}.`,
+          prompt: `Write a compelling book description (2-3 paragraphs) for a ${form.style} ${form.bookType} book titled "${form.title}"${form.subtitle ? ` with subtitle "${form.subtitle}"` : ''}${form.authorName ? ` by ${form.authorName}` : ''}. The book is in ${form.language}. Write the description in ${form.language}. Do NOT use markdown formatting (no asterisks, no hash symbols). Output plain text only.`,
           task: 'draft',
         }),
       })

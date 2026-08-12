@@ -81,6 +81,12 @@ export function ProfilePage() {
   const [settingDefault, setSettingDefault] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
 
+  // Password change state
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+
   const userId = (session?.user as any)?.id
 
   const fetchKeys = useCallback(async () => {
@@ -185,6 +191,50 @@ export function ProfilePage() {
     }
   }
 
+  /* ── Change Password ── */
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!userId || !oldPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'change_password',
+          userId,
+          oldPassword,
+          newPassword,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Password changed successfully')
+        setOldPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        toast.error(data.error || 'Failed to change password')
+      }
+    } catch {
+      toast.error('An error occurred while changing password')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   /* ── Helpers ── */
   const getProviderLabel = (provider: string) =>
     PROVIDERS.find((p) => p.value === provider)?.label ?? provider
@@ -236,6 +286,53 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Change Password Card ── */}
+      <div className="glass-card p-6 mb-8">
+        <h2 className="text-lg font-semibold text-dw-text mb-4 flex items-center gap-2">
+          <Key className="h-5 w-5 text-dw-accent-purple" />
+          Change Password
+        </h2>
+        <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+          <div className="space-y-2">
+            <Label htmlFor="old-password">Current Password</Label>
+            <Input
+              id="old-password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              className="bg-dw-navy-light border-dw-border"
+              placeholder="••••••••"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="bg-dw-navy-light border-dw-border"
+              placeholder="••••••••"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm New Password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="bg-dw-navy-light border-dw-border"
+              placeholder="••••••••"
+            />
+          </div>
+          <Button type="submit" disabled={changingPassword} className="gradient-btn text-white w-full mt-2">
+            {changingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Update Password
+          </Button>
+        </form>
       </div>
 
       {/* ── API Keys Section ── */}

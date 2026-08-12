@@ -316,10 +316,10 @@ export function BookEditor({ bookId }: { bookId: string }) {
 
     setAiLoading(true)
     const prompts: Record<string, string> = {
-      rewrite: `Rewrite the following text while preserving its meaning and style. Return only the rewritten text:\n\n${text}`,
-      expand: `Expand the following text with more detail, description, and depth. Return only the expanded text:\n\n${text}`,
-      shorten: `Shorten the following text while keeping the key information. Return only the shortened text:\n\n${text}`,
-      improve: `Improve the grammar, clarity, and flow of the following text. Return only the improved text:\n\n${text}`,
+      rewrite: `Rewrite the following text while preserving its meaning and style. Return only the rewritten text formatted as HTML. Do NOT use markdown (e.g. no ** or ##):\n\n${text}`,
+      expand: `Expand the following text with more detail, description, and depth. Return only the expanded text formatted as HTML. Do NOT use markdown:\n\n${text}`,
+      shorten: `Shorten the following text while keeping the key information. Return only the shortened text formatted as HTML. Do NOT use markdown:\n\n${text}`,
+      improve: `Improve the grammar, clarity, and flow of the following text. Return only the improved text formatted as HTML. Do NOT use markdown:\n\n${text}`,
     }
 
     try {
@@ -333,6 +333,28 @@ export function BookEditor({ bookId }: { bookId: string }) {
       toast.success(`Text ${action}d`)
     } catch (err: any) {
       toast.error(err.message || 'AI action failed')
+    } finally { setAiLoading(false) }
+  }
+
+  const autoWriteChapter = async () => {
+    if (!editor || !selectedChapter || !book || !userId) return
+    setAiLoading(true)
+    const prompt = `Write a comprehensive, engaging chapter for a ${book.style} ${book.bookType} book titled "${book.title}".
+Chapter Title: "${selectedChapter.title}"
+Book Description: ${book.description || 'No description provided.'}
+Write the full chapter content (aim for 1000-1500 words). Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NOT use markdown formatting (no asterisks, no hash symbols).`
+
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, prompt, task: 'draft' }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      editor.commands.setContent(data.content)
+      toast.success('Chapter generated successfully')
+    } catch (err: any) {
+      toast.error(err.message || 'Auto-write failed')
     } finally { setAiLoading(false) }
   }
 
@@ -460,6 +482,17 @@ export function BookEditor({ bookId }: { bookId: string }) {
               <div className="w-px h-5 bg-[#1E293B] mx-1" />
               <ToolbarButton onClick={insertImage}><ImagePlus className="w-4 h-4" /></ToolbarButton>
               <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive('highlight')}><Highlighter className="w-4 h-4" /></ToolbarButton>
+              <div className="w-px h-5 bg-[#1E293B] mx-1" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={autoWriteChapter} 
+                disabled={aiLoading}
+                className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto"
+              >
+                {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                Auto-Write Chapter
+              </Button>
             </div>
           )}
 

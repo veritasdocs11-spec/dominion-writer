@@ -34,9 +34,10 @@ function AppContent() {
   const handleLogout = useCallback(async () => {
     logout()
     await signOut({ redirect: false })
+    window.location.href = '/'
   }, [logout])
 
-  if (!mounted || status === 'loading') {
+  if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#080C14' }}>
         <div className="flex flex-col items-center gap-4">

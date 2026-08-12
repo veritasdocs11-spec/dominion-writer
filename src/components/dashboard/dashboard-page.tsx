@@ -314,7 +314,7 @@ export function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-1 text-xs" style={{ color: '#6677AA' }}>
                       <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(new Date(book.updatedAt), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(book.updatedAt + (book.updatedAt.endsWith('Z') ? '' : 'Z')), { addSuffix: true })}
                     </div>
                   </div>
                 </div>

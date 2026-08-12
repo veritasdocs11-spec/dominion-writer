@@ -99,8 +99,8 @@ export function AdminDashboard({ initialData, session }: AdminDashboardProps) {
   })
 
   // Login Form State for Admin Portal
-  const [loginEmail, setLoginEmail] = useState('admin@veritasdocs.com')
-  const [loginPassword, setLoginPassword] = useState('AdminVeritasdocs@2026')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   const isSuperAdmin = session?.user?.email === 'admin@veritasdocs.com' || (session?.user as any)?.isAdmin || (session?.user as any)?.role === 'ADMIN'
@@ -227,9 +227,6 @@ SET "role" = 'ADMIN', "isAdmin" = TRUE, "planActive" = TRUE, "planType" = 'lifet
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <Label htmlFor="admin-password">Admin Password</Label>
-                    <span className="text-[11px] text-primary cursor-pointer hover:underline" onClick={() => { setLoginEmail('admin@veritasdocs.com'); setLoginPassword('AdminVeritasdocs@2026'); }}>
-                      Reset to Default
-                    </span>
                   </div>
                   <Input
                     id="admin-password"
@@ -255,20 +252,6 @@ SET "role" = 'ADMIN', "isAdmin" = TRUE, "planActive" = TRUE, "planType" = 'lifet
                   Sign In to Admin Dashboard
                 </Button>
               </form>
-
-              {/* Quick credential helper badge */}
-              <div className="mt-4 p-3 rounded-xl bg-muted/40 border border-border/60 space-y-1.5 text-xs text-muted-foreground">
-                <div className="flex justify-between items-center font-medium text-foreground">
-                  <span>Pre-configured Credentials:</span>
-                  <span className="text-green-400 font-mono flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Ready in Supabase
-                  </span>
-                </div>
-                <div className="font-mono text-[11px] space-y-0.5 text-muted-foreground">
-                  <div><strong>Email:</strong> admin@veritasdocs.com</div>
-                  <div><strong>Password:</strong> AdminVeritasdocs@2026</div>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -524,7 +507,7 @@ SET "role" = 'ADMIN', "isAdmin" = TRUE, "planActive" = TRUE, "planType" = 'lifet
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut({ redirect: false }).then(() => { window.location.href = '/' })}
                 className="text-xs h-8 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:text-red-300"
               >
                 <LogOut className="w-3.5 h-3.5 sm:mr-1" />
