@@ -255,20 +255,7 @@ SET "role" = 'ADMIN', "isAdmin" = TRUE, "planActive" = TRUE, "planType" = 'lifet
             </CardContent>
           </Card>
 
-          {/* Supabase SQL Runner Helper */}
-          <div className="p-4 rounded-2xl bg-muted/30 border border-border/60 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2.5">
-              <Database className="w-4 h-4 text-primary shrink-0" />
-              <div>
-                <p className="font-semibold text-foreground">Supabase Database Setup SQL</p>
-                <p className="text-muted-foreground text-[11px]">Need to run the admin migration in Supabase SQL editor?</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={copySqlScript} className="h-8 text-xs gap-1.5 shrink-0">
-              {copiedSql ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-              {copiedSql ? 'Copied' : 'Copy SQL'}
-            </Button>
-          </div>
+          {/* SQL Setup Helper has been removed for security reasons */}
 
           <div className="text-center">
             <a href="/" className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1">

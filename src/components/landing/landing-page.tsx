@@ -1,6 +1,7 @@
 'use client'
 
 import { useAppStore } from '@/store/app-store'
+import { useSession } from 'next-auth/react'
 import {
   Key, Layers, Infinity, FileDown, BookOpen, PenTool,
   ArrowRight, UserPlus, LogIn, Sparkles, Star, Zap, Shield, Globe, Check,
@@ -87,6 +88,7 @@ const stats = [
 
 export function LandingPage() {
   const setView = useAppStore((s) => s.setView)
+  const { data: session } = useSession()
 
   return (
     <div className="flex flex-col overflow-hidden">
@@ -138,30 +140,43 @@ export function LandingPage() {
         {/* CTAs */}
         <div className="relative z-10 mt-10 flex flex-col items-center gap-4 sm:flex-row animate-fade-in"
           style={{ animationDelay: '0.3s', animationFillMode: 'both' }}>
-          <button
-            onClick={() => setView('signup')}
-            className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
-          >
-            <UserPlus className="w-5 h-5" />
-            Start Writing Free
-            <ArrowRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setView('login')}
-            className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl transition-all duration-300"
-            style={{ background: 'rgba(26,37,64,0.5)', border: '1px solid rgba(79,142,247,0.2)', color: '#EEF2FF' }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.1)'
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.4)'
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(26,37,64,0.5)'
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.2)'
-            }}
-          >
-            <LogIn className="w-4 h-4" />
-            Sign In
-          </button>
+          {session ? (
+            <button
+              onClick={() => setView('dashboard')}
+              className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
+            >
+              <BookOpen className="w-5 h-5" />
+              Go to Dashboard
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setView('signup')}
+                className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
+              >
+                <UserPlus className="w-5 h-5" />
+                Start Writing Free
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setView('login')}
+                className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl transition-all duration-300"
+                style={{ background: 'rgba(26,37,64,0.5)', border: '1px solid rgba(79,142,247,0.2)', color: '#EEF2FF' }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.1)'
+                  ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.4)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(26,37,64,0.5)'
+                  ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.2)'
+                }}
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </button>
+            </>
+          )}
         </div>
 
         {/* Social proof line */}

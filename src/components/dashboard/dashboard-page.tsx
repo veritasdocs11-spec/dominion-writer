@@ -50,15 +50,19 @@ const bookGradients = [
 ]
 
 export function DashboardPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { setView, setSelectedBookId } = useAppStore()
   const [books, setBooks] = useState<BookData[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const fetchBooks = useCallback(async () => {
+    if (status === 'loading') return
     const userId = (session?.user as any)?.id || session?.user?.email
-    if (!userId) return
+    if (!userId) {
+      setLoading(false)
+      return
+    }
     try {
       const res = await fetch(`/api/books?userId=${userId}`)
       if (res.ok) setBooks(await res.json())
@@ -67,7 +71,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [session])
+  }, [session, status])
 
   useEffect(() => { fetchBooks() }, [fetchBooks])
 

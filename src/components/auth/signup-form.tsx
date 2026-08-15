@@ -88,6 +88,7 @@ export function SignupForm() {
       if (result?.ok) {
         toast.success('Account created successfully!')
         setView('dashboard')
+        window.location.reload()
       } else {
         toast.success('Account created! Please sign in.')
         setView('login')
@@ -236,27 +237,35 @@ export function SignupForm() {
                 className="text-sm leading-snug text-dw-text-muted cursor-pointer select-none"
               >
                 I confirm I am 18+ and agree to the{' '}
-                <button
-                  type="button"
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.preventDefault()
                     setView('terms')
                   }}
-                  className="font-medium text-dw-accent-blue hover:underline"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') setView('terms')
+                  }}
+                  className="inline font-medium text-dw-accent-blue hover:underline"
                 >
                   User Agreement
-                </button>{' '}
+                </span>{' '}
                 and{' '}
-                <button
-                  type="button"
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.preventDefault()
                     setView('privacy')
                   }}
-                  className="font-medium text-dw-accent-blue hover:underline"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') setView('privacy')
+                  }}
+                  className="inline font-medium text-dw-accent-blue hover:underline"
                 >
                   Privacy Policy
-                </button>
+                </span>
               </Label>
             </div>
             {errors.ageConfirmed && (

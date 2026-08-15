@@ -288,6 +288,30 @@ export function ProfilePage() {
         </div>
       </div>
 
+      {/* ── Subscription Plan Card ── */}
+      <div className="glass-card p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-dw-text mb-1 flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-400" />
+            Current Plan
+          </h2>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge className="bg-dw-navy-light/50 text-dw-text-muted border-dw-border">
+              Free Plan (Bring Your Own Key)
+            </Badge>
+          </div>
+          <p className="text-sm text-dw-text-muted mt-2 max-w-md">
+            You are currently on the free plan which requires you to provide your own AI API keys. Upgrade to unlock premium features and built-in AI access.
+          </p>
+        </div>
+        <a
+          href="/pricing"
+          className="gradient-btn inline-flex items-center justify-center whitespace-nowrap rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
+        >
+          Upgrade Plan
+        </a>
+      </div>
+
       {/* ── Change Password Card ── */}
       <div className="glass-card p-6 mb-8">
         <h2 className="text-lg font-semibold text-dw-text mb-4 flex items-center gap-2">

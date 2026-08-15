@@ -44,6 +44,7 @@ export function LoginForm() {
       if (result?.ok) {
         toast.success('Welcome back!')
         setView('dashboard')
+        window.location.reload()
       } else {
         const msg = result?.error === 'CredentialsSignin'
           ? 'Invalid email or password'
@@ -135,16 +136,15 @@ export function LoginForm() {
                 <Label htmlFor="login-password" className="text-sm font-medium" style={{ color: '#EEF2FF' }}>
                   Password
                 </Label>
-                <button
-                  type="button"
-                  onClick={() => toast.info('Please contact support@veritasdocs.com to reset your password.')}
+                <a
+                  href="mailto:support@veritasdocs.com?subject=Password%20Reset%20Request"
                   className="text-xs transition-colors"
                   style={{ color: '#4F8EF7' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#7EB3FA' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4F8EF7' }}
                 >
                   Forgot Password?
-                </button>
+                </a>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: '#6677AA' }} />

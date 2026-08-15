@@ -31,6 +31,20 @@ function AppContent() {
     }
   }, [status, session, setUser])
 
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.view) {
+        setView(e.state.view)
+      } else {
+        const params = new URLSearchParams(window.location.search)
+        const viewParam = params.get('view') as AppView | null
+        if (viewParam) setView(viewParam)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [setView])
+
   const handleLogout = useCallback(async () => {
     logout()
     await signOut({ redirect: false })
@@ -89,7 +103,7 @@ function AppContent() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             {/* Logo */}
             <button
-              onClick={() => setView('landing')}
+              onClick={() => setView(session ? 'dashboard' : 'landing')}
               className="flex items-center gap-2.5 group shrink-0"
             >
               <div

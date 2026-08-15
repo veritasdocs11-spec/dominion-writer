@@ -1,10 +1,12 @@
 'use client'
 
 import { useAppStore } from '@/store/app-store'
+import { useSession } from 'next-auth/react'
 import { BookOpen, Mail, ArrowUpRight } from 'lucide-react'
 
 export function Footer() {
   const setView = useAppStore((s) => s.setView)
+  const { data: session } = useSession()
 
   return (
     <footer className="w-full mt-auto" style={{ background: '#050810', borderTop: '1px solid rgba(26,37,64,0.6)' }}>
@@ -43,8 +45,8 @@ export function Footer() {
             <nav className="flex flex-col gap-2.5">
               {[
                 { label: 'About', view: 'about' },
-                { label: 'Dashboard', view: 'dashboard' },
-                { label: 'Profile', view: 'profile' },
+                { label: 'Dashboard', view: session ? 'dashboard' : 'login' },
+                { label: 'Profile', view: session ? 'profile' : 'login' },
               ].map(item => (
                 <button
                   key={item.label}
