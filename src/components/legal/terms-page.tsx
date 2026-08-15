@@ -40,7 +40,7 @@ function renderBulletedText(text: string) {
 
   if (!intro) {
     // Fallback: try to split on a colon that precedes capitalized list items
-    const colonSplit = text.match(/^(.*?:)\s*([\s\S]+)$/s)
+    const colonSplit = text.match(/^([\s\S]*?:)\s*([\s\S]+)$/)
     if (colonSplit) {
       const possibleBullets = colonSplit[2]
         .split(/,\s*(?=[A-Z])/)

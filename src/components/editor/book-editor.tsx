@@ -108,6 +108,18 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const autoSaveRef = useRef<NodeJS.Timeout | null>(null)
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
+  const handleSelectChapter = async (id: string) => {
+    await saveContent()
+    setSelectedChapterId(id)
+    setSelectedMatter(null)
+  }
+
+  const handleSelectMatter = async (m: { type: 'front' | 'back'; kind: string; label: string }) => {
+    await saveContent()
+    setSelectedMatter(m)
+    setSelectedChapterId(null)
+  }
+
   const userId = (session?.user as any)?.id || session?.user?.email
 
   // Fetch book
@@ -353,6 +365,7 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
       if (data.error) throw new Error(data.error)
       editor.commands.setContent(data.content)
       toast.success('Chapter generated successfully')
+      setTimeout(() => saveContent(), 100)
     } catch (err: any) {
       toast.error(err.message || 'Auto-write failed')
     } finally { setAiLoading(false) }
@@ -409,8 +422,8 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
             <SidebarContent
               book={book} selectedChapterId={selectedChapterId} selectedMatter={selectedMatter}
               sidebarTab={sidebarTab} setSidebarTab={setSidebarTab}
-              onSelectChapter={(id) => { setSelectedChapterId(id); setSelectedMatter(null); setSidebarOpen(false) }}
-              onSelectMatter={(m) => { setSelectedMatter(m); setSelectedChapterId(null); setSidebarOpen(false) }}
+              onSelectChapter={(id) => { handleSelectChapter(id); setSidebarOpen(false) }}
+              onSelectMatter={(m) => { handleSelectMatter(m); setSidebarOpen(false) }}
               onAddChapter={addChapter} onDeleteChapter={deleteChapter} onRenameChapter={renameChapter}
               onReorder={handleDragEnd} sensors={sensors}
             />
@@ -449,8 +462,8 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
           <SidebarContent
             book={book} selectedChapterId={selectedChapterId} selectedMatter={selectedMatter}
             sidebarTab={sidebarTab} setSidebarTab={setSidebarTab}
-            onSelectChapter={(id) => { setSelectedChapterId(id); setSelectedMatter(null) }}
-            onSelectMatter={(m) => { setSelectedMatter(m); setSelectedChapterId(null) }}
+            onSelectChapter={handleSelectChapter}
+            onSelectMatter={handleSelectMatter}
             onAddChapter={addChapter} onDeleteChapter={deleteChapter} onRenameChapter={renameChapter}
             onReorder={handleDragEnd} sensors={sensors}
           />
@@ -483,16 +496,42 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
               <ToolbarButton onClick={insertImage}><ImagePlus className="w-4 h-4" /></ToolbarButton>
               <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive('highlight')}><Highlighter className="w-4 h-4" /></ToolbarButton>
               <div className="w-px h-5 bg-[#1E293B] mx-1" />
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={autoWriteChapter} 
-                disabled={aiLoading}
-                className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto"
-              >
-                {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                Auto-Write Chapter
-              </Button>
+              {(selectedMatter?.kind === 'cover_page' || selectedMatter?.kind === 'back_cover') ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (!editor || !book) return
+                    setAiLoading(true)
+                    try {
+                      const isBack = selectedMatter.kind === 'back_cover'
+                      const prompt = `A professional book cover design for a ${book.bookType} book titled "${book.title}". The text "${book.title}" must be clearly written on the cover. ${book.description ? `Theme: ${book.description.substring(0, 100)}` : ''} ${isBack ? 'This is the back cover design.' : 'High quality, stunning artwork.'}`
+                      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=1200&nologo=true`
+                      const imgHtml = `<p style="text-align: center"><img src="${imageUrl}" alt="${book.title} Cover" /></p>`
+                      const contentText = isBack ? `<h2>Back Cover</h2>${imgHtml}` : `<h1>${book.title}</h1><h2 style="color: #666">${book.subtitle || ''}</h2><p><strong>By ${book.authorName || 'Author'}</strong></p>${imgHtml}`
+                      editor.commands.setContent(contentText)
+                      toast.success('Cover generated!')
+                    } catch { toast.error('Failed to generate cover') }
+                    finally { setAiLoading(false) }
+                  }} 
+                  disabled={aiLoading}
+                  className="h-8 text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] hover:bg-[#8B5CF6]/20 border border-[#8B5CF6]/30 ml-auto"
+                >
+                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5 mr-1.5" />}
+                  Generate AI Cover Image
+                </Button>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={autoWriteChapter} 
+                  disabled={aiLoading}
+                  className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto"
+                >
+                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                  {selectedMatter ? 'Auto-Write Section' : 'Auto-Write Chapter'}
+                </Button>
+              )}
             </div>
           )}
 
@@ -535,28 +574,28 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-1">
               {book.chapters.map(ch => (
-                <button key={ch.id} onClick={() => { setSelectedChapterId(ch.id); setSelectedMatter(null) }} className="w-full text-left">
+                <button key={ch.id} onClick={() => handleSelectChapter(ch.id)} className="w-full text-left">
                   <p className={`text-sm font-medium truncate ${ch.id === selectedChapterId ? 'text-[#3B82F6]' : 'text-[#94A3B8]'}`}>{ch.title}</p>
                 </button>
               ))}
               {headings.length > 0 && <Separator className="my-2 bg-[#1E293B]" />}
               {headings.map((h, i) => (
-                <button key={i} onClick={() => { setSelectedChapterId(h.chapterId); setSelectedMatter(null) }} className="w-full text-left" style={{ paddingLeft: `${(h.level - 1) * 12 + 4}px` }}>
+                <button key={i} onClick={() => handleSelectChapter(h.chapterId)} className="w-full text-left" style={{ paddingLeft: `${(h.level - 1) * 12 + 4}px` }}>
                   <p className="text-xs text-[#475569] truncate hover:text-[#94A3B8] transition-colors">{h.text}</p>
                 </button>
               ))}
             </div>
+            
+            {/* Bibliography Section */}
+            <div className="border-t border-[#1E293B] mt-2">
+              <BibliographyPanel book={book} bookId={bookId} onUpdate={fetchBook} />
+            </div>
+
+            {/* Glossary Section */}
+            <div className="border-t border-[#1E293B]">
+              <GlossaryPanel book={book} bookId={bookId} onUpdate={fetchBook} />
+            </div>
           </ScrollArea>
-
-          {/* Bibliography Section */}
-          <div className="border-t border-[#1E293B]">
-            <BibliographyPanel book={book} bookId={bookId} onUpdate={fetchBook} />
-          </div>
-
-          {/* Glossary Section */}
-          <div className="border-t border-[#1E293B]">
-            <GlossaryPanel book={book} bookId={bookId} onUpdate={fetchBook} />
-          </div>
         </div>
 
         {/* Collapsed TOC toggle */}
@@ -645,7 +684,7 @@ function SidebarContent({ book, selectedChapterId, selectedMatter, sidebarTab, s
       {/* Front Matter Tab */}
       {sidebarTab === 'frontmatter' && (
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {(['title_page', 'dedication', 'acknowledgements', 'preface'] as const).map(type => {
+          {(['cover_page', 'title_page', 'dedication', 'acknowledgements', 'preface'] as const).map(type => {
             const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
             const isSelected = selectedMatter?.type === 'front' && selectedMatter?.kind === type
             return (
@@ -660,7 +699,7 @@ function SidebarContent({ book, selectedChapterId, selectedMatter, sidebarTab, s
       {/* Back Matter Tab */}
       {sidebarTab === 'backmatter' && (
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {(['afterword', 'about_author'] as const).map(type => {
+          {(['afterword', 'about_author', 'back_cover'] as const).map(type => {
             const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
             const isSelected = selectedMatter?.type === 'back' && selectedMatter?.kind === type
             return (

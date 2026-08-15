@@ -35,6 +35,7 @@ export function BookWizard() {
     language: 'English',
     description: '',
     bibliographyFormat: 'none',
+    generateGlossary: false,
   })
 
   const [suggestedTitles, setSuggestedTitles] = useState<{ title: string; subtitle: string }[]>([])
@@ -49,6 +50,7 @@ export function BookWizard() {
       case 4: return form.title.trim().length > 0
       case 5: return form.language.trim().length > 0
       case 6: return true
+      case 7: return true
       default: return true
     }
   }
@@ -124,6 +126,7 @@ export function BookWizard() {
           wordCountTarget: form.wordCountUnlimited ? null : form.wordCountTarget,
           description: form.description || null,
           bibliographyFormat: form.bibliographyFormat,
+          generateGlossary: form.generateGlossary,
         }),
       })
       if (res.ok) {
@@ -147,6 +150,7 @@ export function BookWizard() {
     { num: 4, label: 'Title' },
     { num: 5, label: 'Language' },
     { num: 6, label: 'Description' },
+    { num: 7, label: 'Structure' },
   ]
 
   return (
@@ -155,7 +159,7 @@ export function BookWizard() {
         <Button variant="ghost" onClick={() => step === 1 ? setView('dashboard') : setStep(s => s - 1)} className="text-[#94A3B8] hover:text-[#E2E8F0]">
           <ArrowLeft className="w-4 h-4 mr-2" /> {step === 1 ? 'Dashboard' : 'Back'}
         </Button>
-        <span className="text-sm text-[#94A3B8]">Step {step} of 6</span>
+        <span className="text-sm text-[#94A3B8]">Step {step} of 7</span>
       </div>
 
       {/* Step indicator */}
@@ -323,8 +327,43 @@ export function BookWizard() {
             </div>
             <Button variant="outline" onClick={generateDescription} disabled={aiLoading} className="border-[#3B82F6]/50 text-[#3B82F6] hover:bg-[#3B82F6]/10">
               {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              Generate with AI
+              Generate Description
             </Button>
+          </div>
+        )}
+
+        {/* Step 7: Structure */}
+        {step === 7 && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <h2 className="text-2xl font-bold gradient-text mb-1">Book Structure</h2>
+              <p className="text-[#94A3B8] text-sm">Choose what additional sections to include in your book.</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg border border-[#1E293B] bg-[#0B0F19]">
+                <div>
+                  <p className="text-[#E2E8F0] font-medium">Glossary</p>
+                  <p className="text-xs text-[#94A3B8]">Include a glossary for specialized terms</p>
+                </div>
+                <Switch checked={form.generateGlossary} onCheckedChange={v => update('generateGlossary', v)} />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[#E2E8F0]">Bibliography Format</Label>
+                <RadioGroup value={form.bibliographyFormat} onValueChange={v => update('bibliographyFormat', v)} className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {['none', 'apa', 'mla', 'chicago', 'harvard'].map(format => (
+                    <Label key={format} htmlFor={`bib-${format}`} className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer transition-all ${
+                      form.bibliographyFormat === format ? 'border-[#3B82F6] bg-[#3B82F6]/10 text-[#3B82F6]' : 'border-[#1E293B] bg-[#0B0F19] text-[#94A3B8] hover:border-[#334155]'
+                    }`}>
+                      <RadioGroupItem value={format} id={`bib-${format}`} className="sr-only" />
+                      <span className="text-sm font-medium">{format.toUpperCase()}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+            </div>
+            <p className="text-sm text-[#94A3B8] mt-4">Note: Your book will automatically include a Cover Page, Title Page, and Back Cover by default.</p>
           </div>
         )}
 
@@ -333,14 +372,14 @@ export function BookWizard() {
           <Button variant="ghost" onClick={() => step === 1 ? setView('dashboard') : setStep(s => s - 1)} className="text-[#94A3B8] hover:text-[#E2E8F0]" disabled={submitting}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </Button>
-          {step < 6 ? (
+          {step < 7 ? (
             <Button onClick={() => setStep(s => s + 1)} disabled={!canProceed() || submitting} className="gradient-btn text-white">
               Next <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={submitting || aiLoading} className="gradient-btn text-white">
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Create Book
+              Start Writing
             </Button>
           )}
         </div>

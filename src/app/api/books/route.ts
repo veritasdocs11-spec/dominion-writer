@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
-    const { userId, title, subtitle, authorName, bookType, style, styleOtherText, language, wordCountTarget, description, bibliographyFormat } = data
+    const { userId, title, subtitle, authorName, bookType, style, styleOtherText, language, wordCountTarget, description, bibliographyFormat, generateGlossary } = data
 
     if (!userId || !title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -39,6 +39,33 @@ export async function POST(request: Request) {
         wordCountTarget: wordCountTarget || null, description, bibliographyFormat: bibliographyFormat || 'none',
       },
     })
+
+    // Create Cover Page
+    const prompt = `A professional book cover design for a ${bookType || 'fiction'} book titled "${title}". The text "${title}" must be clearly written on the cover. ${description ? `Theme: ${description.substring(0, 100)}` : ''} High quality, stunning artwork.`
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=1200&nologo=true`
+    const coverHtml = `<h1 style="text-align: center">${title}</h1><h2 style="text-align: center; color: #666">${subtitle || ''}</h2><p style="text-align: center"><strong>By ${authorName || 'Author'}</strong></p><p style="text-align: center"><img src="${imageUrl}" alt="${title} Cover" style="max-width: 100%; border-radius: 8px;"/></p>`
+    await db.frontMatter.create({ data: { bookId: book.id, type: 'cover_page', content: coverHtml, orderIndex: 0 } })
+
+    // Create Title Page
+    const titleHtml = `<div style="text-align: center; margin-top: 40px"><h1>${title}</h1><h2>${subtitle || ''}</h2><br/><br/><h3>By ${authorName || ''}</h3></div>`
+    await db.frontMatter.create({ data: { bookId: book.id, type: 'title_page', content: titleHtml, orderIndex: 1 } })
+
+    // Create Chapter 1
+    await db.chapter.create({ data: { bookId: book.id, title: 'Chapter 1', content: '<p>Start writing your first chapter here...</p>', orderIndex: 0 } })
+
+    // Create Back Cover
+    const backPrompt = `A professional back cover design for a ${bookType || 'fiction'} book titled "${title}". The text "${title}" must be clearly written on the cover. ${description ? `Theme: ${description.substring(0, 100)}` : ''} This is the back cover design.`
+    const backImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(backPrompt)}?width=800&height=1200&nologo=true`
+    const backHtml = `<h2 style="text-align: center">Back Cover</h2><p style="text-align: center"><img src="${backImageUrl}" alt="${title} Back Cover" style="max-width: 100%; border-radius: 8px;"/></p><p>${description || ''}</p>`
+    await db.backMatter.create({ data: { bookId: book.id, type: 'back_cover', content: backHtml, orderIndex: 0 } })
+
+    if (generateGlossary) {
+      await db.glossaryTerm.create({ data: { bookId: book.id, term: 'Example Term', definition: 'This is an example definition.', orderIndex: 0 } })
+    }
+
+    if (bibliographyFormat && bibliographyFormat !== 'none') {
+      await db.bibliographyEntry.create({ data: { bookId: book.id, citationText: 'Example Citation (2026). Title of Example Book.', format: bibliographyFormat, orderIndex: 0 } })
+    }
 
     return NextResponse.json(book)
   } catch (error: any) {
