@@ -130,8 +130,11 @@ export function BookWizard() {
         }),
       })
       if (res.ok) {
+        const newBook = await res.json()
         toast.success('Book created successfully!')
-        setView('dashboard')
+        // Use AppStore directly or safely
+        useAppStore.getState().setSelectedBookId(newBook.id)
+        useAppStore.getState().setView('editor')
       } else {
         const data = await res.json()
         toast.error(data.error || 'Failed to create book')
