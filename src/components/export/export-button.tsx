@@ -36,35 +36,49 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
       if (!res.ok) throw new Error('Failed to load book')
       const book = await res.json()
 
-      let blob: Blob
-      let filename: string
-
       if (format === 'docx') {
         const content = generateHtmlBook(book)
         // Simple HTML-to-DOCX using HTML wrapper with .doc extension (Word can open it)
-        blob = new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-        filename = `${bookTitle}.doc`
+        const blob = new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+        const filename = `${bookTitle}.doc`
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
       } else if (format === 'epub') {
         // Generate a basic EPUB-like HTML file
         const content = generateHtmlBook(book)
-        blob = new Blob([content], { type: 'application/epub+zip' })
-        filename = `${bookTitle}.epub`
+        const blob = new Blob([content], { type: 'application/epub+zip' })
+        const filename = `${bookTitle}.epub`
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
       } else {
-        // PDF: Use print-to-PDF via hidden iframe
+        // PDF: Use html2pdf.js
         const content = generateHtmlBook(book)
-        blob = new Blob([content], { type: 'application/pdf' })
-        filename = `${bookTitle}.pdf`
+        
+        // Dynamically import html2pdf
+        const html2pdf = (await import('html2pdf.js')).default
+        
+        const opt = {
+          margin:       10,
+          filename:     `${bookTitle}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        await html2pdf().set(opt).from(content).save();
       }
-
-      // Download
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
 
       // Log export
       await fetch(`/api/books/${bookId}/export`, {
