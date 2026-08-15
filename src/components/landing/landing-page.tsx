@@ -151,14 +151,19 @@ export function LandingPage() {
             </button>
           ) : (
             <>
-              <button
-                onClick={() => setView('signup')}
-                className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
-              >
-                <UserPlus className="w-5 h-5" />
-                Start Writing Free
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex flex-col items-start">
+                <button
+                  onClick={() => setView('signup')}
+                  className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Bring Your Own API Key & Try Free
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <span className="text-[11px] mt-2 ml-1 text-dw-text-muted/80">
+                  *Free plan limited to 1 book. Upgrade for unlimited built-in AI.
+                </span>
+              </div>
               <button
                 onClick={() => setView('login')}
                 className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl transition-all duration-300"

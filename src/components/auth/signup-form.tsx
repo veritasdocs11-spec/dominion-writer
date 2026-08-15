@@ -234,7 +234,7 @@ export function SignupForm() {
               />
               <Label
                 htmlFor="age-confirmed"
-                className="text-sm leading-snug text-dw-text-muted cursor-pointer select-none"
+                className="text-sm font-normal leading-snug text-dw-text-muted cursor-pointer select-none block"
               >
                 I confirm I am 18+ and agree to the{' '}
                 <span

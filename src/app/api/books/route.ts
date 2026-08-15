@@ -24,6 +24,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 })
     }
 
+    const user = await db.user.findUnique({ where: { id: userId } })
+    if (!user || user.planType === 'free' || !user.planType) {
+      const booksCount = await db.book.count({ where: { userId } })
+      if (booksCount >= 1) {
+        return NextResponse.json({ error: 'Free plan limit reached (1 book maximum). Please upgrade to create more books.' }, { status: 403 })
+      }
+    }
+
     const book = await db.book.create({
       data: {
         userId, title, subtitle, authorName, bookType: bookType || 'fiction',

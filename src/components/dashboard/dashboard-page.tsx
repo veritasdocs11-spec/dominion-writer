@@ -94,8 +94,16 @@ export function DashboardPage() {
           bibliographyFormat: 'none',
         }),
       })
-      if (res.ok) { toast.success('Book duplicated'); fetchBooks() }
-    } catch { toast.error('Failed to duplicate') }
+      if (res.ok) { 
+        toast.success('Book duplicated')
+        fetchBooks() 
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to duplicate book')
+      }
+    } catch { 
+      toast.error('Failed to duplicate book') 
+    }
   }
 
   const handleDelete = async () => {

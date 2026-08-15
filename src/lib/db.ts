@@ -309,8 +309,12 @@ export const db = {
       }
       return books
     },
-    async count() {
-      const { count, error } = await supabase.from('Book').select('*', { count: 'exact', head: true })
+    async count({ where }: { where?: { userId?: string } } = {}) {
+      let query = supabase.from('Book').select('*', { count: 'exact', head: true })
+      if (where?.userId) {
+        query = query.eq('userId', where.userId)
+      }
+      const { count, error } = await query
       if (error) return 0
       return count || 0
     },

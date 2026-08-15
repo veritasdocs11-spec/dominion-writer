@@ -45,7 +45,7 @@ export function BookWizard() {
     switch (step) {
       case 1: return form.authorName.trim().length > 0
       case 2: return form.style === 'Other' ? form.styleOtherText.trim().length > 0 : true
-      case 3: return true
+      case 3: return form.wordCountUnlimited ? true : (form.wordCountTarget !== null && form.wordCountTarget > 0)
       case 4: return form.title.trim().length > 0
       case 5: return form.language.trim().length > 0
       case 6: return true
