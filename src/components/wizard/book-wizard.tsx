@@ -165,7 +165,6 @@ export function BookWizard() {
         <span className="text-sm text-[#94A3B8]">Step {step} of 7</span>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center justify-center mb-10 gap-1">
         {steps.map((s, i) => (
           <div key={s.num} className="flex items-center">
@@ -179,6 +178,22 @@ export function BookWizard() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* Free Plan Note */}
+      <div className="mb-6 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-sm text-blue-100 font-medium">Free Plan: 1 book per month limit</p>
+            <p className="text-xs text-blue-200/70 mt-0.5">Upgrade your plan to unlock unlimited book creation and premium AI features.</p>
+          </div>
+        </div>
+        <a href="/pricing" className="text-xs font-semibold px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors whitespace-nowrap text-center">
+          Upgrade Plan
+        </a>
       </div>
 
       <div className="glass-card p-6 sm:p-8">

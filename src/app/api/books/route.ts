@@ -35,10 +35,13 @@ export async function POST(request: Request) {
     
     const actualUserId = user.id
 
-    if (user.planType === 'free' || !user.planType) {
+    const apiKeys = await db.apiKey.findMany({ where: { userId: actualUserId } })
+    const hasCustomApiKey = apiKeys.length > 0
+
+    if (!user.isAdmin && !hasCustomApiKey && (user.planType === 'free' || !user.planType)) {
       const booksCount = await db.book.count({ where: { userId: actualUserId } })
       if (booksCount >= 1) {
-        return NextResponse.json({ error: 'Free plan limit reached (1 book maximum). Please upgrade to create more books.' }, { status: 403 })
+        return NextResponse.json({ error: 'Free plan limit reached (1 book maximum). Please upgrade or add your own OpenAI API key to create unlimited books.' }, { status: 403 })
       }
     }
 
@@ -66,10 +69,10 @@ export async function POST(request: Request) {
     // Create Chapter 1
     creationPromises.push(db.chapter.create({ data: { bookId: book.id, title: 'Chapter 1', content: '<p>Start writing your first chapter here...</p>', orderIndex: 0 } }))
 
-    // Create Back Cover
-    const backPrompt = `A professional back cover design for a ${bookType || 'fiction'} book titled "${title}". The text "${title}" must be clearly written on the cover. ${description ? `Theme: ${description.substring(0, 100)}` : ''} This is the back cover design.`
-    const backImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(backPrompt)}?width=800&height=1200&nologo=true`
-    const backHtml = `<h2 style="text-align: center">Back Cover</h2><p style="text-align: center"><img src="${backImageUrl}" alt="${title} Back Cover" style="max-width: 100%; border-radius: 8px;"/></p><p>${description || ''}</p>`
+    // Create Back Cover (About the Author)
+    const backPrompt = `A professional author portrait for a ${bookType || 'fiction'} book author named "${authorName || 'the author'}". Professional lighting, high quality, suitable for an 'About the Author' page.`
+    const backImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(backPrompt)}?width=600&height=600&nologo=true`
+    const backHtml = `<h2 style="text-align: center">About the Author</h2><p style="text-align: center"><img src="${backImageUrl}" alt="Author Portrait" style="max-width: 250px; border-radius: 50%; margin: 20px auto; display: block;"/></p><p style="text-align: center"><strong>${authorName || 'The Author'}</strong></p><p style="text-align: center">Use the AI "Auto-Write" or "Expand" feature to generate a detailed biography here.</p>`
     creationPromises.push(db.backMatter.create({ data: { bookId: book.id, type: 'back_cover', content: backHtml, orderIndex: 0 } }))
 
     if (generateGlossary) {

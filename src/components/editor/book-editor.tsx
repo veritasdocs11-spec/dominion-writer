@@ -452,8 +452,13 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
           <BookMarked className="w-4 h-4" />
         </Button>
 
-        {/* Export */}
-        {book && <ExportButton bookId={book.id} bookTitle={book.title} />}
+        {/* Upgrade & Export */}
+        <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors ml-auto hidden sm:block">
+          Upgrade Plan
+        </a>
+        <div className="sm:ml-2">
+          {book && <ExportButton bookId={book.id} bookTitle={book.title} />}
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -502,10 +507,17 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
                   size="sm" 
                   onClick={async () => {
                     if (!editor || !book) return
+                    const userInstruction = window.prompt("What should the cover look like? (Optional, leave blank for default)")
+                    if (userInstruction === null) return // User cancelled
                     setAiLoading(true)
                     try {
                       const isBack = selectedMatter.kind === 'back_cover'
-                      const prompt = `A professional book cover design for a ${book.bookType} book titled "${book.title}". The text "${book.title}" must be clearly written on the cover. ${book.description ? `Theme: ${book.description.substring(0, 100)}` : ''} ${isBack ? 'This is the back cover design.' : 'High quality, stunning artwork.'}`
+                      let prompt = `A professional book cover design for a ${book.bookType} book titled "${book.title}". The text "${book.title}" must be clearly written on the cover.`
+                      if (userInstruction.trim()) {
+                        prompt += ` User request: ${userInstruction.trim()}`
+                      } else {
+                        prompt += ` ${book.description ? `Theme: ${book.description.substring(0, 100)}` : ''} ${isBack ? 'This is the back cover design.' : 'High quality, stunning artwork.'}`
+                      }
                       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=1200&nologo=true`
                       const imgHtml = `<p style="text-align: center"><img src="${imageUrl}" alt="${book.title} Cover" /></p>`
                       const contentText = isBack ? `<h2>Back Cover</h2>${imgHtml}` : `<h1>${book.title}</h1><h2 style="color: #666">${book.subtitle || ''}</h2><p><strong>By ${book.authorName || 'Author'}</strong></p>${imgHtml}`

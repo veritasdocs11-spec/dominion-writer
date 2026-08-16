@@ -155,7 +155,7 @@ export function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
         <div>
           <h1 className="text-3xl sm:text-4xl font-extrabold mb-1" style={{ fontFamily: "'Outfit', sans-serif", color: '#EEF2FF' }}>
             My <span className="gradient-text">Library</span>
@@ -171,6 +171,22 @@ export function DashboardPage() {
           <Plus className="w-4 h-4" />
           New Book
         </button>
+      </div>
+
+      {/* Free Plan Note */}
+      <div className="mb-8 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-sm text-blue-100 font-medium">Free Plan: 1 book per month limit</p>
+            <p className="text-xs text-blue-200/70 mt-0.5">Upgrade your plan to unlock unlimited book creation and premium AI features.</p>
+          </div>
+        </div>
+        <a href="/pricing" className="text-xs font-semibold px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors whitespace-nowrap text-center">
+          Upgrade Plan
+        </a>
       </div>
 
       {/* Stats row */}
