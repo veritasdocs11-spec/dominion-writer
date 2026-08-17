@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     })
 
     // Prepare parallel creation promises
-    const creationPromises = []
+    const creationPromises: Promise<any>[] = []
 
     // Create Cover Page
     const prompt = `A professional book cover design for a ${bookType || 'fiction'} book titled "${title}". The text "${title}" must be clearly written on the cover. ${description ? `Theme: ${description.substring(0, 100)}` : ''} High quality, stunning artwork.`
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     creationPromises.push(db.frontMatter.create({ data: { bookId: book.id, type: 'title_page', content: titleHtml, orderIndex: 1 } }))
 
     // Create Chapter 1
-    creationPromises.push(db.chapter.create({ data: { bookId: book.id, title: 'Chapter 1', content: '<p>Start writing your first chapter here...</p>', orderIndex: 0 } }))
+    creationPromises.push(db.chapter.create({ data: { bookId: book.id, title: 'Chapter 1', content: '<p>Start writing your first chapter here... or click on AI to auto write book at top right.</p>', orderIndex: 0 } }))
 
     // Create Back Cover (About the Author)
     const backPrompt = `A professional author portrait for a ${bookType || 'fiction'} book author named "${authorName || 'the author'}". Professional lighting, high quality, suitable for an 'About the Author' page.`

@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useSession, signOut, SessionProvider } from 'next-auth/react'
-import { useAppStore } from '@/store/app-store'
+import { useAppStore, type AppView } from '@/store/app-store'
 import { LandingPage } from '@/components/landing/landing-page'
 import { AboutPage } from '@/components/legal/about-page'
 import { PrivacyPage } from '@/components/legal/privacy-page'

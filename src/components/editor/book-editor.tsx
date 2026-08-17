@@ -60,7 +60,7 @@ interface BibliographyEntry {
 
 interface BookData {
   id: string; title: string; subtitle?: string; authorName?: string; bookType: string
-  style: string; language: string; status: string; description?: string
+  style: string; language: string; status: string; description?: string; wordCountTarget?: number | null
   bibliographyFormat: string; lastAutosavedAt?: string; updatedAt: string
   chapters: Chapter[]; frontMatter: FrontMatter[]; backMatter: BackMatterItem[]
   glossaryTerms: GlossaryTerm[]; bibliographyEntries: BibliographyEntry[]
@@ -146,7 +146,7 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit, TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Underline, ResizableImage, Placeholder.configure({ placeholder: 'Start writing your chapter...' }),
+      Underline, ResizableImage, Placeholder.configure({ placeholder: 'Start writing your first chapter here... or click on AI to auto write book at top right.' }),
       Highlight, TextStyle, Color,
     ],
     content: selectedChapter?.content || '<p></p>',
@@ -351,10 +351,13 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const autoWriteChapter = async () => {
     if (!editor || !selectedChapter || !book || !userId) return
     setAiLoading(true)
-    const prompt = `Write a comprehensive, engaging chapter for a ${book.style} ${book.bookType} book titled "${book.title}".
-Chapter Title: "${selectedChapter.title}"
+    const prompt = `Write a comprehensive, engaging full book for a ${book.style} ${book.bookType} book titled "${book.title}".
 Book Description: ${book.description || 'No description provided.'}
-Write the full chapter content (aim for 1000-1500 words). Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NOT use markdown formatting (no asterisks, no hash symbols).`
+Target word count: ${book.wordCountTarget || '50000'} words.
+Please write the ENTIRE book from start to finish. Divide the book into multiple chapters (Chapter 1, Chapter 2, etc.) using <h2> tags for chapter titles. 
+The book must flow properly and tell a complete story or provide a complete guide. 
+Write as much as you possibly can to hit the target word count in one single comprehensive output.
+Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NOT use markdown formatting (no asterisks, no hash symbols).`
 
     try {
       const res = await fetch('/api/ai', {
@@ -364,7 +367,7 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       editor.commands.setContent(data.content)
-      toast.success('Chapter generated successfully')
+      toast.success('Book generated successfully')
       setTimeout(() => saveContent(), 100)
     } catch (err: any) {
       toast.error(err.message || 'Auto-write failed')
@@ -541,7 +544,7 @@ Write the full chapter content (aim for 1000-1500 words). Format the output stri
                   className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto"
                 >
                   {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                  {selectedMatter ? 'Auto-Write Section' : 'Auto-Write Chapter'}
+                  {selectedMatter ? 'Auto-Write Section' : 'Auto-Write Book'}
                 </Button>
               )}
             </div>
