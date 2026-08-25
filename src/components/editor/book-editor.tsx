@@ -30,6 +30,8 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -64,6 +66,19 @@ interface BookData {
   bibliographyFormat: string; lastAutosavedAt?: string; updatedAt: string
   chapters: Chapter[]; frontMatter: FrontMatter[]; backMatter: BackMatterItem[]
   glossaryTerms: GlossaryTerm[]; bibliographyEntries: BibliographyEntry[]
+}
+
+function toRomanDate(date: Date) {
+  const romanMap: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV', 16: 'XVI', 17: 'XVII', 18: 'XVIII', 19: 'XIX', 20: 'XX', 21: 'XXI', 22: 'XXII', 23: 'XXIII', 24: 'XXIV', 25: 'XXV', 26: 'XXVI', 27: 'XXVII', 28: 'XXVIII', 29: 'XXIX', 30: 'XXX', 31: 'XXXI' }
+  const yearRoman = (year: number) => {
+    let result = '';
+    const romanNumerals = [ { value: 1000, numeral: 'M' }, { value: 900, numeral: 'CM' }, { value: 500, numeral: 'D' }, { value: 400, numeral: 'CD' }, { value: 100, numeral: 'C' }, { value: 90, numeral: 'XC' }, { value: 50, numeral: 'L' }, { value: 40, numeral: 'XL' }, { value: 10, numeral: 'X' }, { value: 9, numeral: 'IX' }, { value: 5, numeral: 'V' }, { value: 4, numeral: 'IV' }, { value: 1, numeral: 'I' } ];
+    for (const numeral of romanNumerals) {
+      while (year >= numeral.value) { result += numeral.numeral; year -= numeral.value; }
+    }
+    return result;
+  }
+  return `${romanMap[date.getDate()] || date.getDate()}.${romanMap[date.getMonth() + 1] || date.getMonth() + 1}.${yearRoman(date.getFullYear())}`
 }
 
 // ─── Sortable Chapter Item ──────────────────────────────────
@@ -105,6 +120,7 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const [sidebarTab, setSidebarTab] = useState<'chapters' | 'frontmatter' | 'backmatter'>('chapters')
   const [showTocPanel, setShowTocPanel] = useState(true)
   const [floatingMenu, setFloatingMenu] = useState({ visible: false, x: 0, y: 0 })
+  const [generationProgress, setGenerationProgress] = useState<{ isOpen: boolean; currentStep: string; progress: number }>({ isOpen: false, currentStep: '', progress: 0 })
   const autoSaveRef = useRef<NodeJS.Timeout | null>(null)
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -146,7 +162,7 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit, TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Underline, ResizableImage, Placeholder.configure({ placeholder: 'Start writing your first chapter here... or click on AI to auto write book at top right.' }),
+      Underline, ResizableImage, Placeholder.configure({ placeholder: 'Start writing your first chapter here... or click on AI to auto write chapter at top right.' }),
       Highlight, TextStyle, Color,
     ],
     content: selectedChapter?.content || '<p></p>',
@@ -348,16 +364,119 @@ export function BookEditor({ bookId }: { bookId: string }) {
     } finally { setAiLoading(false) }
   }
 
+  const autoWriteFullBook = async () => {
+    if (!book || !userId) return;
+    setGenerationProgress({ isOpen: true, currentStep: 'Generating book outline...', progress: 5 });
+    
+    try {
+      // Step 1: Generate Outline
+      const outlinePrompt = `Generate a chapter-by-chapter outline for a comprehensive ${book.wordCountTarget || 50000} word book titled "${book.title}".
+Style: ${book.style}, Genre: ${book.bookType}.
+Description: ${book.description || 'No description provided.'}
+Return ONLY a valid JSON array of objects, where each object has a "title" string and a "summary" string detailing what the chapter covers.
+Example: [{"title": "Chapter 1: Introduction", "summary": "Sets the scene..."}]`;
+
+      const outlineRes = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, prompt: outlinePrompt, task: 'draft' }),
+      });
+      const outlineData = await outlineRes.json();
+      if (outlineData.error) throw new Error(outlineData.error);
+      
+      let outline: { title: string, summary: string }[] = [];
+      try {
+        const cleanedStr = outlineData.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+        outline = JSON.parse(cleanedStr);
+      } catch (e) {
+        throw new Error("Failed to parse outline from AI.");
+      }
+
+      if (!Array.isArray(outline) || outline.length === 0) throw new Error("Invalid outline generated.");
+
+      // Step 2: Front Matter
+      setGenerationProgress({ isOpen: true, currentStep: 'Writing Front Matter (Title Page, Copyright, Dedication)...', progress: 15 });
+      const currentDateRoman = toRomanDate(new Date());
+      const frontMatterTypes = ['title_page', 'copyright_page', 'dedication'];
+      for (const fm of frontMatterTypes) {
+        let content = '';
+        if (fm === 'title_page') {
+          content = `<h1 style="text-align: center;">${book.title}</h1><h2 style="text-align: center;">${book.subtitle || ''}</h2><p style="text-align: center;"><br></p><p style="text-align: center;">By ${book.authorName || 'Author'}</p>`;
+        } else if (fm === 'copyright_page') {
+          content = `<p style="text-align: center;">Copyright &copy; ${new Date().getFullYear()} by ${book.authorName || 'Author'}. All rights reserved.</p><p style="text-align: center;">Published on: ${currentDateRoman}</p>`;
+        } else if (fm === 'dedication') {
+          const fmPrompt = `Write a short, heartfelt dedication for a book titled "${book.title}". Return only HTML (e.g. <p style="text-align: center;"><em>...</em></p>).`;
+          const fmRes = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, prompt: fmPrompt, task: 'draft' }) });
+          const fmData = await fmRes.json();
+          content = fmData.error ? `<p style="text-align: center;"><em>Dedicated to...</em></p>` : fmData.content;
+        }
+        await fetch(`/api/books/${bookId}/matter`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookId, type: fm, content, action: 'upsert-front' }),
+        });
+      }
+
+      // Step 3: Sequential Chapters
+      let previousSummaries = "";
+      for (let i = 0; i < outline.length; i++) {
+        const chap = outline[i];
+        setGenerationProgress({ isOpen: true, currentStep: `Writing ${chap.title}...`, progress: 20 + Math.floor((i / outline.length) * 70) });
+        
+        // Create chapter in DB
+        const createRes = await fetch(`/api/books/${bookId}/chapters`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookId, title: chap.title, content: '<p>Loading...</p>', action: 'create' }),
+        });
+        const newChap = await createRes.json();
+
+        // Generate content
+        const chapPrompt = `Write the full, comprehensive content for "${chap.title}" of the book "${book.title}".
+Chapter Summary: ${chap.summary}
+Previous Context (to ensure flow): ${previousSummaries || 'This is the first chapter.'}
+Write as much detail as possible to reach the target word count. Use HTML format strictly (<h2>, <p>, etc.). NO MARKDOWN.`;
+        
+        const contentRes = await fetch('/api/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, prompt: chapPrompt, task: 'draft' }),
+        });
+        const contentData = await contentRes.json();
+        const finalContent = contentData.error ? `<p>Failed to generate content.</p>` : contentData.content;
+        
+        // Update chapter
+        await fetch(`/api/books/${bookId}/chapters`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: newChap.id, bookId, title: chap.title, content: finalContent, action: 'update' }),
+        });
+
+        previousSummaries += `\n- ${chap.title}: ${chap.summary}`;
+        // Keep context short enough
+        if (previousSummaries.length > 2000) previousSummaries = previousSummaries.substring(previousSummaries.length - 2000);
+      }
+
+      setGenerationProgress({ isOpen: true, currentStep: 'Finalizing formatting and Table of Contents...', progress: 95 });
+      await fetchBook(); // Refresh everything
+      setGenerationProgress({ isOpen: false, currentStep: '', progress: 100 });
+      toast.success('Full book generated successfully!');
+
+    } catch (err: any) {
+      setGenerationProgress({ isOpen: false, currentStep: '', progress: 0 });
+      toast.error(err.message || 'Auto-write full book failed');
+    }
+  }
+
   const autoWriteChapter = async () => {
-    if (!editor || !selectedChapter || !book || !userId) return
+    if (!editor || (!selectedChapter && !selectedMatter) || !book || !userId) return
     setAiLoading(true)
-    const prompt = `Write a comprehensive, engaging full book for a ${book.style} ${book.bookType} book titled "${book.title}".
+    let prompt = ''
+    if (selectedMatter) {
+      prompt = `Write the content for the ${selectedMatter.label} section of the book "${book.title}".
+Description: ${book.description || 'No description provided.'}
+Format the output strictly as HTML. Do NOT use markdown.`
+    } else if (selectedChapter) {
+      prompt = `Write a comprehensive chapter titled "${selectedChapter.title}" for a ${book.style} ${book.bookType} book titled "${book.title}".
 Book Description: ${book.description || 'No description provided.'}
-Target word count: ${book.wordCountTarget || '50000'} words.
-Please write the ENTIRE book from start to finish. Divide the book into multiple chapters (Chapter 1, Chapter 2, etc.) using <h2> tags for chapter titles. 
-The book must flow properly and tell a complete story or provide a complete guide. 
-Write as much as you possibly can to hit the target word count in one single comprehensive output.
-Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NOT use markdown formatting (no asterisks, no hash symbols).`
+Write as much as possible in one output.
+Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NOT use markdown formatting.`
+    }
 
     try {
       const res = await fetch('/api/ai', {
@@ -367,7 +486,7 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       editor.commands.setContent(data.content)
-      toast.success('Book generated successfully')
+      toast.success(selectedMatter ? 'Section generated' : 'Chapter generated')
       setTimeout(() => saveContent(), 100)
     } catch (err: any) {
       toast.error(err.message || 'Auto-write failed')
@@ -536,16 +655,28 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
                   Generate AI Cover Image
                 </Button>
               ) : (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={autoWriteChapter} 
-                  disabled={aiLoading}
-                  className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto"
-                >
-                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                  {selectedMatter ? 'Auto-Write Section' : 'Auto-Write Book'}
-                </Button>
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={autoWriteChapter} 
+                    disabled={aiLoading || generationProgress.isOpen}
+                    className="h-8 text-xs font-medium bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 ml-auto mr-1"
+                  >
+                    {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                    {selectedMatter ? 'Auto-Write Section' : 'Auto-Write Chapter'}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={autoWriteFullBook} 
+                    disabled={aiLoading || generationProgress.isOpen}
+                    className="h-8 text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] hover:bg-[#8B5CF6]/20 border border-[#8B5CF6]/30"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                    Auto-Write Full Book
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -620,6 +751,23 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
           </button>
         )}
       </div>
+
+      <Dialog open={generationProgress.isOpen} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md bg-[#0D1117] border-[#1E293B] text-[#E2E8F0]">
+          <DialogHeader>
+            <DialogTitle>Generating Full Book</DialogTitle>
+            <DialogDescription className="text-[#94A3B8]">
+              Please wait while the AI writes your book. This may take a few minutes. Do not close this window.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <Loader2 className="w-8 h-8 text-[#3B82F6] animate-spin" />
+            <p className="text-sm font-medium text-[#E2E8F0] text-center">{generationProgress.currentStep}</p>
+            <Progress value={generationProgress.progress} className="w-full h-2 bg-[#1E293B]" />
+            <p className="text-xs text-[#475569]">{generationProgress.progress}%</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
