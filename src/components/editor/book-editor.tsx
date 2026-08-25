@@ -501,7 +501,15 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
       const regex = /<h([1-3])[^>]*>(.*?)<\/h\1>/gi
       let match
       while ((match = regex.exec(ch.content)) !== null) {
-        headings.push({ level: parseInt(match[1]), text: match[2].replace(/<[^>]*>/g, ''), chapterId: ch.id, chapterTitle: ch.title })
+        const text = match[2].replace(/<[^>]*>/g, '').trim()
+        // Skip heading if it is essentially just the chapter title again
+        const textLower = text.toLowerCase()
+        const titleLower = ch.title.trim().toLowerCase()
+        if (textLower === titleLower || textLower.includes(titleLower) || titleLower.includes(textLower)) {
+          if (textLower.startsWith('chapter')) continue; // definitely a duplicate chapter heading
+        }
+        
+        headings.push({ level: parseInt(match[1]), text, chapterId: ch.id, chapterTitle: ch.title })
       }
     }
     return headings
