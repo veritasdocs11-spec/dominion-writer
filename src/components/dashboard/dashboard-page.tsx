@@ -181,11 +181,11 @@ export function DashboardPage() {
           </div>
           <div>
             <p className="text-sm text-blue-100 font-medium">Free Plan: 1 book per month limit</p>
-            <p className="text-xs text-blue-200/70 mt-0.5">Upgrade your plan to unlock unlimited book creation and premium AI features.</p>
+            <p className="text-xs text-blue-200/70 mt-0.5">Get the Lifetime Plan for just $99 USD to unlock unlimited book creation and premium AI features forever. No subscriptions.</p>
           </div>
         </div>
         <a href="/pricing" className="text-xs font-semibold px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors whitespace-nowrap text-center">
-          Upgrade Plan
+          Upgrade to Lifetime - $99
         </a>
       </div>
 

@@ -303,9 +303,13 @@ export function LandingPage() {
               <h2 className="text-4xl font-extrabold sm:text-5xl mb-4" style={{ color: '#EEF2FF' }}>
                 Write Forever,<br />Pay <span className="gradient-text">Once</span>
               </h2>
-              <p className="text-lg mb-8 max-w-xl mx-auto" style={{ color: '#8899BB' }}>
+              <p className="text-lg mb-6 max-w-xl mx-auto" style={{ color: '#8899BB' }}>
                 No subscriptions. No credit systems. No hidden fees. Get lifetime access and full control over your AI writing tools.
               </p>
+              <div className="mb-8">
+                <span className="text-5xl font-extrabold text-white">$99</span>
+                <span className="text-lg text-[#8899BB] ml-2">USD / Lifetime</span>
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
                 {['All AI providers supported', 'Unlimited books & chapters', 'DOCX, PDF & EPUB export'].map(item => (
                   <div key={item} className="flex items-center gap-2 text-sm" style={{ color: '#8899BB' }}>
@@ -319,9 +323,9 @@ export function LandingPage() {
               </div>
               <a
                 href="/pricing"
-                className="gradient-btn inline-flex items-center gap-2 mt-10 px-10 py-4 text-lg font-semibold text-white rounded-xl"
+                className="gradient-btn inline-flex items-center gap-2 mt-10 px-10 py-4 text-lg font-semibold text-white rounded-xl shadow-lg shadow-blue-500/25"
               >
-                Get Started Now
+                Get Lifetime Access
                 <ArrowRight className="w-5 h-5" />
               </a>
             </div>

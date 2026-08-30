@@ -42,39 +42,7 @@ export default function PricingPage() {
               'Commercial rights for published works',
             ],
             isPopular: true,
-          },
-          {
-            id: 'plan_monthly',
-            name: 'Pro Monthly',
-            slug: 'monthly',
-            price: 19,
-            interval: 'month',
-            description: 'Flexible month-to-month subscription for active authors.',
-            features: [
-              'Unlimited AI writing assistance',
-              'Full book & chapter management',
-              'Standard export to EPUB and PDF',
-              'Glossary and citation tools',
-              'Custom API key integration',
-            ],
-            isPopular: false,
-          },
-          {
-            id: 'plan_annual',
-            name: 'Pro Annual',
-            slug: 'annual',
-            price: 149,
-            interval: 'year',
-            description: 'Best annual value. Save 35% compared to monthly.',
-            features: [
-              'Everything in Pro Monthly',
-              'Save $79 per year (2 months free)',
-              'Priority AI processing speed',
-              'Advanced book styling & formatting',
-              'Priority email customer support',
-            ],
-            isPopular: false,
-          },
+          }
         ])
       })
   }, [])
@@ -129,29 +97,7 @@ export default function PricingPage() {
     ],
   }
 
-  const monthlyPlan = plans.find(p => p.slug === 'monthly') || {
-    name: 'Pro Monthly',
-    price: settings?.monthlyPrice || 19,
-    description: 'Billed month-to-month. Cancel anytime with one click.',
-    features: [
-      'Unlimited AI drafting',
-      'All export formats included',
-      'Chapter & book management',
-      'Standard AI generation',
-    ],
-  }
 
-  const annualPlan = plans.find(p => p.slug === 'annual') || {
-    name: 'Pro Annual',
-    price: settings?.annualPrice || 149,
-    description: 'Save 35% annually. Ideal for prolific authors and novelists.',
-    features: [
-      'Everything in Pro Monthly',
-      '2 months completely free',
-      'Priority generation speed',
-      'VIP email support',
-    ],
-  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center py-16 sm:py-24 px-4 sm:px-6">
@@ -297,85 +243,6 @@ export default function PricingPage() {
           </div>
         </motion.div>
 
-        {/* Secondary Subscription Options (Monthly / Annual) */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <span className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Alternative Subscription Plans</span>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 text-left">
-            {/* Monthly */}
-            <div className="p-6 rounded-2xl border border-border bg-card/60 backdrop-blur-sm space-y-4 hover:border-primary/40 transition-colors">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg">{monthlyPlan.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{monthlyPlan.description}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold">${monthlyPlan.price}</span>
-                  <span className="text-xs text-muted-foreground">/mo</span>
-                </div>
-              </div>
-              <ul className="space-y-2 text-xs text-muted-foreground">
-                {(Array.isArray(monthlyPlan.features) ? monthlyPlan.features : [
-                  'Unlimited AI writing assistance',
-                  'Standard chapter & book tools',
-                  'EPUB & PDF exports',
-                ]).map((f: string, idx: number) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="outline"
-                onClick={() => handleCheckout('monthly')}
-                disabled={loadingPlan !== null}
-                className="w-full mt-2"
-              >
-                {loadingPlan === 'monthly' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Choose Monthly'}
-              </Button>
-            </div>
-
-            {/* Annual */}
-            <div className="p-6 rounded-2xl border border-primary/25 bg-card/60 backdrop-blur-sm space-y-4 hover:border-primary/50 transition-colors relative">
-              <span className="absolute -top-2.5 right-6 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white">
-                Save 35%
-              </span>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg">{annualPlan.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{annualPlan.description}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold">${annualPlan.price}</span>
-                  <span className="text-xs text-muted-foreground">/yr</span>
-                </div>
-              </div>
-              <ul className="space-y-2 text-xs text-muted-foreground">
-                {(Array.isArray(annualPlan.features) ? annualPlan.features : [
-                  'Everything in Pro Monthly',
-                  '2 months free ($79 savings)',
-                  'Priority generation queues',
-                ]).map((f: string, idx: number) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="outline"
-                onClick={() => handleCheckout('annual')}
-                disabled={loadingPlan !== null}
-                className="w-full mt-2 border-primary/30 text-primary hover:bg-primary/10"
-              >
-                {loadingPlan === 'annual' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Choose Annual (Best Value)'}
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
