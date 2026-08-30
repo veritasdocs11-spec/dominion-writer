@@ -452,6 +452,36 @@ Write as much detail as possible to reach the target word count. Use HTML format
         if (previousSummaries.length > 2000) previousSummaries = previousSummaries.substring(previousSummaries.length - 2000);
       }
 
+      // Step 4: Bibliography
+      setGenerationProgress({ isOpen: true, currentStep: 'Generating APA citations...', progress: 90 });
+      const bibPrompt = `Generate a realistic APA bibliography/citation list for a book titled "${book.title}".
+Description: ${book.description || 'No description provided.'}
+Return ONLY a valid JSON array of strings, where each string is a full APA citation. Provide 5-10 relevant citations.`;
+      try {
+        const bibRes = await fetch('/api/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, prompt: bibPrompt, task: 'draft' }),
+        });
+        const bibData = await bibRes.json();
+        if (!bibData.error) {
+          let citations: string[] = [];
+          try {
+            const cleanedBib = bibData.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+            citations = JSON.parse(cleanedBib);
+          } catch (e) {}
+          if (Array.isArray(citations)) {
+            for (const cite of citations) {
+              await fetch(`/api/books/${bookId}/matter`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookId, type: book.bibliographyFormat || 'apa', content: cite, action: 'add-bibliography' }),
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Continue even if bibliography generation fails
+      }
+
       setGenerationProgress({ isOpen: true, currentStep: 'Finalizing formatting and Table of Contents...', progress: 95 });
       await fetchBook(); // Refresh everything
       setGenerationProgress({ isOpen: false, currentStep: '', progress: 100 });
@@ -591,9 +621,9 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Desktop Sidebar */}
-        <div className="hidden md:flex w-60 border-r border-[#1E293B] bg-[#0D1117] flex-col shrink-0">
+        <div className="hidden md:flex w-60 border-r border-[#1E293B] bg-[#0D1117] flex-col shrink-0 min-h-0">
           <SidebarContent
             book={book} selectedChapterId={selectedChapterId} selectedMatter={selectedMatter}
             sidebarTab={sidebarTab} setSidebarTab={setSidebarTab}
@@ -605,7 +635,7 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
         </div>
 
         {/* Editor Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Toolbar */}
           {editor && (selectedChapter || selectedMatter) && (
             <div className="border-b border-[#1E293B] px-3 py-1.5 flex items-center gap-0.5 flex-wrap shrink-0 bg-[#0B0F19]">
@@ -718,14 +748,14 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
         </div>
 
         {/* Desktop TOC Panel */}
-        <div className={`hidden md:flex flex-col border-l border-[#1E293B] bg-[#0D1117] shrink-0 transition-all duration-300 ${showTocPanel ? 'w-72' : 'w-0 overflow-hidden'}`}>
+        <div className={`hidden md:flex flex-col border-l border-[#1E293B] bg-[#0D1117] shrink-0 min-h-0 transition-all duration-300 ${showTocPanel ? 'w-72' : 'w-0 overflow-hidden'}`}>
           <div className="p-4 border-b border-[#1E293B] flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[#E2E8F0]">Table of Contents</h3>
             <Button variant="ghost" size="icon" onClick={() => setShowTocPanel(false)} className="h-6 w-6 text-[#475569]">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
             <div className="p-3 space-y-1">
               {book.chapters.map(ch => (
                 <button key={ch.id} onClick={() => handleSelectChapter(ch.id)} className="w-full text-left">
@@ -749,7 +779,7 @@ Format the output strictly as HTML (using <p>, <h2>, <strong>, <em>, etc). Do NO
             <div className="border-t border-[#1E293B]">
               <GlossaryPanel book={book} bookId={bookId} onUpdate={fetchBook} />
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Collapsed TOC toggle */}
@@ -827,7 +857,7 @@ function SidebarContent({ book, selectedChapterId, selectedMatter, sidebarTab, s
 
       {/* Chapters Tab */}
       {sidebarTab === 'chapters' && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onReorder}>
               <SortableContext items={book.chapters.map(c => c.id)} strategy={verticalListSortingStrategy}>

@@ -25,6 +25,7 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
   const [loading, setLoading] = useState(false)
   const [format, setFormat] = useState<'pdf' | 'docx' | 'epub'>('pdf')
   const [open, setOpen] = useState(false)
+  const [pdfSettings, setPdfSettings] = useState({ pageSize: 'a4', margin: 10, fontSize: '12pt' })
 
   const userId = (session?.user as any)?.id || session?.user?.email
 
@@ -36,50 +37,38 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
       if (!res.ok) throw new Error('Failed to load book')
       const book = await res.json()
 
-      if (format === 'docx') {
-        const content = generateHtmlBook(book)
-        // Simple HTML-to-DOCX using HTML wrapper with .doc extension (Word can open it)
-        const blob = new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-        const filename = `${bookTitle}.doc`
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
-      } else if (format === 'epub') {
-        // Generate a basic EPUB-like HTML file
-        const content = generateHtmlBook(book)
-        const blob = new Blob([content], { type: 'application/epub+zip' })
-        const filename = `${bookTitle}.epub`
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      if (format === 'docx' || format === 'epub') {
+        window.location.href = `/api/books/${bookId}/export?format=${format}`
+        toast.success(`Downloading ${format.toUpperCase()}...`)
+        setOpen(false)
+        setLoading(false)
+        return
       } else {
         // PDF: Use html2pdf.js
-        const content = generateHtmlBook(book)
+        const content = generateHtmlBook(book, pdfSettings.fontSize)
         const element = document.createElement('div')
         element.innerHTML = content
+        
+        // Attach offscreen to render properly
+        element.style.position = 'absolute'
+        element.style.left = '-9999px'
+        element.style.top = '0'
+        element.style.width = '800px'
+        document.body.appendChild(element)
         
         // Dynamically import html2pdf
         const html2pdf = (await import('html2pdf.js')).default
         
         const opt = {
-          margin:       10,
+          margin:       pdfSettings.margin,
           filename:     `${bookTitle}.pdf`,
           image:        { type: 'jpeg' as const, quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true },
-          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+          html2canvas:  { scale: 2, useCORS: true, logging: false },
+          jsPDF:        { unit: 'mm', format: pdfSettings.pageSize, orientation: 'portrait' as const }
         };
         
         await html2pdf().set(opt).from(element).save();
+        document.body.removeChild(element)
       }
 
       // Log export
@@ -131,6 +120,52 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
           ))}
         </div>
 
+        {format === 'pdf' && (
+          <div className="py-2 px-1 space-y-4">
+            <h4 className="text-sm font-medium text-[#E2E8F0] mb-2 border-b border-[#1E293B] pb-1">PDF Options</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-[#94A3B8] block mb-1">Page Size</label>
+                <select 
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-sm text-[#E2E8F0] p-1.5"
+                  value={pdfSettings.pageSize}
+                  onChange={(e) => setPdfSettings(s => ({ ...s, pageSize: e.target.value }))}
+                >
+                  <option value="a4">A4</option>
+                  <option value="letter">Letter</option>
+                  <option value="a5">A5</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-[#94A3B8] block mb-1">Margins (mm)</label>
+                <select 
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-sm text-[#E2E8F0] p-1.5"
+                  value={pdfSettings.margin}
+                  onChange={(e) => setPdfSettings(s => ({ ...s, margin: Number(e.target.value) }))}
+                >
+                  <option value="10">Normal (10mm)</option>
+                  <option value="5">Narrow (5mm)</option>
+                  <option value="20">Wide (20mm)</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-[#94A3B8] block mb-1">Font Size</label>
+                <div className="flex gap-2">
+                  {(['10pt', '12pt', '14pt']).map(size => (
+                    <button 
+                      key={size}
+                      onClick={() => setPdfSettings(s => ({ ...s, fontSize: size }))}
+                      className={`flex-1 py-1.5 rounded text-xs transition-colors ${pdfSettings.fontSize === size ? 'bg-[#3B82F6] text-white' : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0]'}`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} className="text-[#94A3B8] border-0">Cancel</Button>
           <Button onClick={handleExport} disabled={loading} className="gradient-btn text-white">
@@ -143,7 +178,7 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
   )
 }
 
-function generateHtmlBook(book: any): string {
+function generateHtmlBook(book: any, fontSize: string = '12pt'): string {
   const chaptersHtml = book.chapters
     ?.sort((a: any, b: any) => a.orderIndex - b.orderIndex)
     .map((ch: any) => `
@@ -193,7 +228,7 @@ function generateHtmlBook(book: any): string {
   <title>${book.title}</title>
   <style>
     @page { margin: 2.5cm; }
-    body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 12pt; line-height: 1.8; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 40px 20px; }
+    body { font-family: 'Georgia', 'Times New Roman', serif; font-size: ${fontSize}; line-height: 1.8; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 40px 20px; }
     .title-page { text-align: center; padding-top: 200px; page-break-after: always; }
     .title-page h1 { font-size: 28pt; margin-bottom: 12px; }
     .title-page h2 { font-size: 16pt; font-weight: normal; color: #555; margin-bottom: 8px; }
