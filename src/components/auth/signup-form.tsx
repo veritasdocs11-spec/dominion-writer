@@ -234,7 +234,7 @@ export function SignupForm() {
               />
               <Label
                 htmlFor="age-confirmed"
-                className="text-sm font-normal leading-snug text-dw-text-muted cursor-pointer select-none block"
+                className="flex-1 text-sm font-normal leading-relaxed text-dw-text-muted cursor-pointer select-none"
               >
                 I confirm I am 18+ and agree to the{' '}
                 <span
@@ -247,7 +247,7 @@ export function SignupForm() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setView('terms')
                   }}
-                  className="inline font-medium text-dw-accent-blue hover:underline"
+                  className="font-medium text-dw-accent-blue hover:underline cursor-pointer"
                 >
                   User Agreement
                 </span>{' '}
@@ -262,7 +262,7 @@ export function SignupForm() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setView('privacy')
                   }}
-                  className="inline font-medium text-dw-accent-blue hover:underline"
+                  className="font-medium text-dw-accent-blue hover:underline cursor-pointer"
                 >
                   Privacy Policy
                 </span>

@@ -187,12 +187,12 @@ export function BookWizard() {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-sm text-blue-100 font-medium">Free Plan: 1 book per month limit</p>
-            <p className="text-xs text-blue-200/70 mt-0.5">Upgrade your plan to unlock unlimited book creation and premium AI features.</p>
+            <p className="text-sm text-blue-100 font-medium">Free Plan: 1 book per month limit (with your own API key)</p>
+            <p className="text-xs text-blue-200/70 mt-0.5">Upgrade to the Lifetime Plan for $99 USD to unlock unlimited books, all AI models, and full publishing features forever.</p>
           </div>
         </div>
         <a href="/pricing" className="text-xs font-semibold px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors whitespace-nowrap text-center">
-          Upgrade Plan
+          Upgrade to Lifetime - $99
         </a>
       </div>
 
@@ -368,20 +368,34 @@ export function BookWizard() {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-[#E2E8F0]">Bibliography Format</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[#E2E8F0]">Bibliography Citation Standard</Label>
+                  <span className="text-[11px] text-[#94A3B8]">International academic styles</span>
+                </div>
                 <RadioGroup value={form.bibliographyFormat} onValueChange={v => update('bibliographyFormat', v)} className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {['none', 'apa', 'mla', 'chicago', 'harvard'].map(format => (
-                    <Label key={format} htmlFor={`bib-${format}`} className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer transition-all ${
-                      form.bibliographyFormat === format ? 'border-[#3B82F6] bg-[#3B82F6]/10 text-[#3B82F6]' : 'border-[#1E293B] bg-[#0B0F19] text-[#94A3B8] hover:border-[#334155]'
+                  {[
+                    { id: 'apa', label: 'APA 7th', desc: 'Social Sciences' },
+                    { id: 'mla', label: 'MLA 9th', desc: 'Literature & Arts' },
+                    { id: 'harvard', label: 'Harvard', desc: 'Economics & Mgmt' },
+                    { id: 'chicago', label: 'Chicago', desc: 'History & Humanities' },
+                    { id: 'iso690', label: 'ISO 690', desc: 'Technical & Science' },
+                    { id: 'abnt', label: 'ABNT', desc: 'Brazilian Standard' },
+                    { id: 'none', label: 'None', desc: 'No Bibliography' },
+                  ].map(format => (
+                    <Label key={format.id} htmlFor={`bib-${format.id}`} className={`flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all text-center ${
+                      form.bibliographyFormat === format.id ? 'border-[#3B82F6] bg-[#3B82F6]/10 text-[#3B82F6]' : 'border-[#1E293B] bg-[#0B0F19] text-[#94A3B8] hover:border-[#334155]'
                     }`}>
-                      <RadioGroupItem value={format} id={`bib-${format}`} className="sr-only" />
-                      <span className="text-sm font-medium">{format.toUpperCase()}</span>
+                      <RadioGroupItem value={format.id} id={`bib-${format.id}`} className="sr-only" />
+                      <span className="text-sm font-semibold">{format.label}</span>
+                      <span className="text-[10px] text-[#64748B] mt-0.5">{format.desc}</span>
                     </Label>
                   ))}
                 </RadioGroup>
               </div>
             </div>
-            <p className="text-sm text-[#94A3B8] mt-4">Note: Your book will automatically include a Cover Page, Title Page, and Back Cover by default.</p>
+            <p className="text-xs text-[#94A3B8] mt-4 leading-relaxed bg-[#1E293B]/40 p-3 rounded-lg border border-[#1E293B]">
+              <strong className="text-[#E2E8F0]">Amazon KDP Standards Included:</strong> Your book interior will automatically include standard KDP Front Matter (Half-Title, Title Page, Copyright Page, Dedication, Dynamic Table of Contents) and Back Matter (About the Author, Bibliography with hanging indents).
+            </p>
           </div>
         )}
 

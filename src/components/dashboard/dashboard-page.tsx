@@ -56,24 +56,27 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const fetchBooks = useCallback(async () => {
-    if (status === 'loading') return
-    const userId = (session?.user as any)?.id || session?.user?.email
-    if (!userId) {
-      setLoading(false)
-      return
+  useEffect(() => {
+    let isSubscribed = true
+    const load = async () => {
+      if (status === 'loading') return
+      const userId = (session?.user as any)?.id || session?.user?.email
+      if (!userId) {
+        if (isSubscribed) setLoading(false)
+        return
+      }
+      try {
+        const res = await fetch(`/api/books?userId=${userId}`)
+        if (res.ok && isSubscribed) setBooks(await res.json())
+      } catch {
+        toast.error('Failed to load books')
+      } finally {
+        if (isSubscribed) setLoading(false)
+      }
     }
-    try {
-      const res = await fetch(`/api/books?userId=${userId}`)
-      if (res.ok) setBooks(await res.json())
-    } catch {
-      toast.error('Failed to load books')
-    } finally {
-      setLoading(false)
-    }
+    load()
+    return () => { isSubscribed = false }
   }, [session, status])
-
-  useEffect(() => { fetchBooks() }, [fetchBooks])
 
   const handleEdit = (book: BookData) => {
     setSelectedBookId(book.id)
@@ -95,8 +98,9 @@ export function DashboardPage() {
         }),
       })
       if (res.ok) { 
+        const duplicated = await res.json()
         toast.success('Book duplicated')
-        fetchBooks() 
+        setBooks(prev => [duplicated, ...prev])
       } else {
         const data = await res.json()
         toast.error(data.error || 'Failed to duplicate book')

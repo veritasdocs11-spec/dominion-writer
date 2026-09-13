@@ -108,7 +108,7 @@ export const db = {
           annualPriceId: '',
           enableStripeCheckout: true,
           platformName: 'Dominion Writer',
-          supportEmail: 'support@veritasdocs.com',
+          supportEmail: 'admin@dominionwriter.com',
           defaultAiModel: 'gpt-4o',
           fallbackAiApiKey: '',
           maintenanceMode: false,
@@ -131,7 +131,7 @@ export const db = {
 
   plan: {
     async findMany() {
-      const { data, error } = await supabase.from('Plan').select('*').order('price', { ascending: true })
+      const { data, error } = await supabase.from('Plan').select('*').eq('slug', 'lifetime').order('price', { ascending: true })
       if (error || !data || data.length === 0) {
         return [
           {
@@ -141,34 +141,20 @@ export const db = {
             price: 99,
             interval: 'one-time',
             stripePriceId: '',
-            description: 'One-time payment for unlimited AI writing and publishing forever.',
-            features: ['Unlimited AI writing assistance', 'Advanced formatting & export tools', 'Export to EPUB, PDF, and DOCX', 'Priority email support', 'Access to all future features', 'Commercial rights included'],
+            description: 'One-time payment of $99 USD for unlimited AI writing and publishing forever.',
+            features: [
+              'Unlimited AI writing assistance & book drafting',
+              'Advanced formatting & KDP-compliant tools',
+              'Export to EPUB, PDF, and DOCX formats',
+              'Full Front Matter (Copyright, TOC, Title, Half-Title)',
+              'Full Back Matter & 6 Citation Standards',
+              'Footers with Page Numbers & Running Headers',
+              'Priority email support (admin@dominionwriter.com)',
+              'Access to all future features included',
+              'Full commercial publishing rights',
+            ],
             isActive: true,
             isPopular: true,
-          },
-          {
-            id: 'plan_monthly',
-            name: 'Pro Monthly',
-            slug: 'monthly',
-            price: 19,
-            interval: 'month',
-            stripePriceId: '',
-            description: 'Full AI writing platform billed month-to-month.',
-            features: ['Unlimited AI book drafting', 'Chapter and book management', 'EPUB and PDF exports', 'Custom API key support', 'Standard customer support'],
-            isActive: true,
-            isPopular: false,
-          },
-          {
-            id: 'plan_annual',
-            name: 'Pro Annual',
-            slug: 'annual',
-            price: 149,
-            interval: 'year',
-            stripePriceId: '',
-            description: 'Save 35% with annual billing. Ideal for prolific authors.',
-            features: ['Everything in Pro Monthly', '2 months free', 'Priority AI generation speed', 'Custom font & styling engines', 'VIP publishing assistance'],
-            isActive: true,
-            isPopular: false,
           },
         ]
       }

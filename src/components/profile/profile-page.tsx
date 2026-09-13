@@ -105,8 +105,26 @@ export function ProfilePage() {
   }, [userId])
 
   useEffect(() => {
-    fetchKeys()
-  }, [fetchKeys])
+    let ignore = false
+    async function load() {
+      if (!userId) return
+      try {
+        const res = await fetch(`/api/keys?userId=${userId}`)
+        if (res.ok && !ignore) {
+          const data = await res.json()
+          setKeys(data)
+        }
+      } catch {
+        if (!ignore) toast.error('Failed to load API keys')
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      ignore = true
+    }
+  }, [userId])
 
   /* ── Set default ── */
   const handleSetDefault = async (key: ApiKey) => {

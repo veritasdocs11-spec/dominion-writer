@@ -138,49 +138,49 @@ export function LandingPage() {
         </p>
 
         {/* CTAs */}
-        <div className="relative z-10 mt-10 flex flex-col items-center gap-4 sm:flex-row animate-fade-in"
+        <div className="relative z-10 mt-10 flex flex-col items-center animate-fade-in"
           style={{ animationDelay: '0.3s', animationFillMode: 'both' }}>
           {session ? (
             <button
               onClick={() => setView('dashboard')}
-              className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
+              className="gradient-btn inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl shadow-lg shadow-blue-500/20"
             >
               <BookOpen className="w-5 h-5" />
               Go to Dashboard
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
-            <>
-              <div className="flex flex-col items-start">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button
                   onClick={() => setView('signup')}
-                  className="gradient-btn inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold text-white rounded-xl"
+                  className="gradient-btn inline-flex items-center justify-center gap-2 px-8 py-3.5 h-[52px] text-base font-semibold text-white rounded-xl shadow-lg shadow-blue-500/25 whitespace-nowrap"
                 >
                   <UserPlus className="w-5 h-5" />
                   Bring Your Own API Key & Try Free
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                <span className="text-[11px] mt-2 ml-1 text-dw-text-muted/80">
-                  *Free plan limited to 1 book. Upgrade for unlimited built-in AI.
-                </span>
+                <button
+                  onClick={() => setView('login')}
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 h-[52px] text-base font-semibold rounded-xl transition-all duration-300 whitespace-nowrap"
+                  style={{ background: 'rgba(26,37,64,0.5)', border: '1px solid rgba(79,142,247,0.2)', color: '#EEF2FF' }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.1)'
+                    ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.4)'
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(26,37,64,0.5)'
+                    ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.2)'
+                  }}
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </button>
               </div>
-              <button
-                onClick={() => setView('login')}
-                className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl transition-all duration-300"
-                style={{ background: 'rgba(26,37,64,0.5)', border: '1px solid rgba(79,142,247,0.2)', color: '#EEF2FF' }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.1)'
-                  ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.4)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(26,37,64,0.5)'
-                  ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.2)'
-                }}
-              >
-                <LogIn className="w-4 h-4" />
-                Sign In
-              </button>
-            </>
+              <p className="text-xs text-dw-text-muted/80 text-center">
+                *Free plan limited to 1 book per month with your own API key. Upgrade to the Lifetime Plan ($99 USD) for unlimited book creation.
+              </p>
+            </div>
           )}
         </div>
 

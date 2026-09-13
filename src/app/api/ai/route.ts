@@ -9,12 +9,13 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
   const defaultKey = keys.find(k => k.isDefault) || keys[0]
   const decryptedKey = decryptApiKey(defaultKey.encryptedKey)
   const provider = defaultKey.provider
+  const maxTokens = task === 'draft' ? 8192 : 4096
 
   if (provider === 'openai') {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${decryptedKey}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 4096 }),
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
     })
     const json = await res.json()
     if (json.error) throw new Error(json.error.message)
@@ -25,7 +26,7 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': decryptedKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] }),
     })
     const json = await res.json()
     if (json.error) throw new Error(json.error.message)
@@ -36,7 +37,10 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${decryptedKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      body: JSON.stringify({ 
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: maxTokens }
+      }),
     })
     const json = await res.json()
     if (json.error) throw new Error(json.error.message)
@@ -51,7 +55,7 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
     const res = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${decryptedKey}` },
-      body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: prompt }], max_tokens: 4096 }),
+      body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
     })
     const json = await res.json()
     if (json.error) throw new Error(json.error.message)

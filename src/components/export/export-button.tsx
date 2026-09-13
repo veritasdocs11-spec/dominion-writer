@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useSession } from 'next-auth/react'
 import { toast } from 'sonner'
-import { Download, Loader2, FileText, FileType, BookOpen } from 'lucide-react'
+import { Download, Loader2, FileText, FileType, BookOpen, Printer } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -23,11 +23,9 @@ interface ExportButtonProps {
 export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
-  const [format, setFormat] = useState<'pdf' | 'docx' | 'epub'>('pdf')
+  const [format, setFormat] = useState<'pdf' | 'docx' | 'epub' | 'print'>('pdf')
   const [open, setOpen] = useState(false)
-  const [pdfSettings, setPdfSettings] = useState({ pageSize: 'a4', margin: 10, fontSize: '12pt' })
-
-  const userId = (session?.user as any)?.id || session?.user?.email
+  const [pdfSettings, setPdfSettings] = useState({ pageSize: 'kdp6x9', margin: 15, fontSize: '11pt', font: 'georgia' })
 
   const handleExport = async () => {
     setLoading(true)
@@ -43,32 +41,61 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
         setOpen(false)
         setLoading(false)
         return
+      } else if (format === 'print') {
+        // Open dedicated KDP Print Preview Window for vector-crisp Print & Save-to-PDF
+        const html = generateHtmlBook(book, pdfSettings)
+        const printWindow = window.open('', '_blank')
+        if (!printWindow) {
+          throw new Error('Pop-up blocked. Please allow pop-ups to preview the print book.')
+        }
+        printWindow.document.open()
+        printWindow.document.write(html)
+        printWindow.document.close()
+        
+        // Wait for styles/images to settle, then open print dialog
+        setTimeout(() => {
+          printWindow.focus()
+          printWindow.print()
+        }, 500)
+        
+        toast.success('Print window opened! You can select "Save as PDF" for KDP.')
+        setOpen(false)
+        setLoading(false)
+        return
       } else {
-        // PDF: Use html2pdf.js
-        const content = generateHtmlBook(book, pdfSettings.fontSize)
+        // PDF: Use html2pdf.js for direct file download
+        toast.loading('Generating KDP interior PDF...', { id: 'pdf-gen' })
+        const content = generateHtmlBook(book, pdfSettings)
         const element = document.createElement('div')
         element.innerHTML = content
         
-        // Attach offscreen to render properly
         element.style.position = 'absolute'
         element.style.left = '-9999px'
         element.style.top = '0'
-        element.style.width = '800px'
+        element.style.width = pdfSettings.pageSize === 'kdp6x9' ? '6in' : '8.5in'
         document.body.appendChild(element)
         
-        // Dynamically import html2pdf
         const html2pdf = (await import('html2pdf.js')).default
         
+        const formatDimension: Record<string, [number, number]> = {
+          kdp6x9: [152.4, 228.6], // 6 x 9 inches in mm
+          a4: [210, 297],
+          letter: [215.9, 279.4],
+          a5: [148, 210],
+        }
+
         const opt = {
-          margin:       pdfSettings.margin,
-          filename:     `${bookTitle}.pdf`,
-          image:        { type: 'jpeg' as const, quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true, logging: false },
-          jsPDF:        { unit: 'mm', format: pdfSettings.pageSize, orientation: 'portrait' as const }
-        };
+          margin: [15, 15, 15, 15],
+          filename: `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}_KDP.pdf`,
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: formatDimension[pdfSettings.pageSize] || [152.4, 228.6], orientation: 'portrait' as const },
+          pagebreak: { mode: ['css', 'legacy'] }
+        }
         
-        await html2pdf().set(opt).from(element).save();
+        await html2pdf().set(opt).from(element).save()
         document.body.removeChild(element)
+        toast.success('PDF downloaded successfully!', { id: 'pdf-gen' })
       }
 
       // Log export
@@ -78,10 +105,9 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
         body: JSON.stringify({ bookId, format }),
       })
 
-      toast.success(`Exported as ${format.toUpperCase()}!`)
       setOpen(false)
     } catch (err: any) {
-      toast.error(err.message || 'Export failed')
+      toast.error(err.message || 'Export failed', { id: 'pdf-gen' })
     } finally {
       setLoading(false)
     }
@@ -91,86 +117,83 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]">
-          <Download className="w-4 h-4 mr-1.5" /> Export
+          <Download className="w-4 h-4 mr-1.5" /> Export Book
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#151C2C] border-[#1E293B] sm:max-w-md">
+      <DialogContent className="bg-[#151C2C] border-[#1E293B] sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[#E2E8F0]">Export Book</DialogTitle>
-          <DialogDescription className="text-[#94A3B8]">Choose a format to export &quot;{bookTitle}&quot;</DialogDescription>
+          <DialogTitle className="text-[#E2E8F0]">Export Finished Manuscript</DialogTitle>
+          <DialogDescription className="text-[#94A3B8]">
+            Choose an Amazon KDP-compliant export format for &quot;{bookTitle}&quot;
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-3 py-4">
-          {([
-            { fmt: 'pdf' as const, icon: FileText, label: 'PDF', desc: 'For printing & sharing' },
-            { fmt: 'docx' as const, icon: FileType, label: 'DOCX', desc: 'Word document' },
-            { fmt: 'epub' as const, icon: BookOpen, label: 'EPUB', desc: 'E-reader format' },
-          ]).map(({ fmt, icon: Icon, label, desc }) => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-4">
+          {[
+            { fmt: 'print' as const, icon: Printer, label: 'KDP Print Preview', desc: 'Vector PDF / Print' },
+            { fmt: 'pdf' as const, icon: FileText, label: 'Direct PDF', desc: 'Pre-formatted interior' },
+            { fmt: 'docx' as const, icon: FileType, label: 'Word (DOCX)', desc: 'With headers & footers' },
+            { fmt: 'epub' as const, icon: BookOpen, label: 'EPUB E-Book', desc: 'Standard reader format' },
+          ].map(({ fmt, icon: Icon, label, desc }) => (
             <button
               key={fmt}
               onClick={() => setFormat(fmt)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+              className={`flex flex-col items-center text-center gap-1.5 p-3 rounded-lg border-2 transition-all ${
                 format === fmt ? 'border-[#3B82F6] bg-[#3B82F6]/10' : 'border-[#1E293B] hover:border-[#334155]'
               }`}
             >
-              <Icon className={`w-8 h-8 ${format === fmt ? 'text-[#3B82F6]' : 'text-[#94A3B8]'}`} />
-              <span className={`text-sm font-medium ${format === fmt ? 'text-[#3B82F6]' : 'text-[#E2E8F0]'}`}>{label}</span>
-              <span className="text-xs text-[#475569]">{desc}</span>
+              <Icon className={`w-6 h-6 ${format === fmt ? 'text-[#3B82F6]' : 'text-[#94A3B8]'}`} />
+              <span className={`text-xs font-semibold ${format === fmt ? 'text-[#3B82F6]' : 'text-[#E2E8F0]'}`}>{label}</span>
+              <span className="text-[10px] text-[#475569]">{desc}</span>
             </button>
           ))}
         </div>
 
-        {format === 'pdf' && (
-          <div className="py-2 px-1 space-y-4">
-            <h4 className="text-sm font-medium text-[#E2E8F0] mb-2 border-b border-[#1E293B] pb-1">PDF Options</h4>
-            <div className="grid grid-cols-2 gap-4">
+        {(format === 'pdf' || format === 'print') && (
+          <div className="py-2 px-1 space-y-3 bg-[#0B0F19]/60 p-3 rounded-lg border border-[#1E293B]">
+            <h4 className="text-xs font-semibold text-[#E2E8F0] uppercase tracking-wider">KDP Interior Design Options</h4>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-[#94A3B8] block mb-1">Page Size</label>
+                <label className="text-[11px] text-[#94A3B8] block mb-1">Book Trim Size</label>
                 <select 
-                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-sm text-[#E2E8F0] p-1.5"
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-xs text-[#E2E8F0] p-1.5 focus:border-[#3B82F6] outline-none"
                   value={pdfSettings.pageSize}
                   onChange={(e) => setPdfSettings(s => ({ ...s, pageSize: e.target.value }))}
                 >
-                  <option value="a4">A4</option>
-                  <option value="letter">Letter</option>
-                  <option value="a5">A5</option>
+                  <option value="kdp6x9">KDP Standard Trade (6&quot; × 9&quot;)</option>
+                  <option value="letter">US Letter (8.5&quot; × 11&quot;)</option>
+                  <option value="a4">Standard A4</option>
+                  <option value="a5">Pocket A5</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-[#94A3B8] block mb-1">Margins (mm)</label>
+                <label className="text-[11px] text-[#94A3B8] block mb-1">Typography Font</label>
                 <select 
-                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-sm text-[#E2E8F0] p-1.5"
-                  value={pdfSettings.margin}
-                  onChange={(e) => setPdfSettings(s => ({ ...s, margin: Number(e.target.value) }))}
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-md text-xs text-[#E2E8F0] p-1.5 focus:border-[#3B82F6] outline-none"
+                  value={pdfSettings.font}
+                  onChange={(e) => setPdfSettings(s => ({ ...s, font: e.target.value }))}
                 >
-                  <option value="10">Normal (10mm)</option>
-                  <option value="5">Narrow (5mm)</option>
-                  <option value="20">Wide (20mm)</option>
+                  <option value="georgia">Georgia (Classic Book Serif)</option>
+                  <option value="times">Times New Roman (Formal)</option>
+                  <option value="garamond">Garamond (Literary Standard)</option>
+                  <option value="sans">Inter / Sans-Serif (Modern)</option>
                 </select>
               </div>
-              <div className="col-span-2">
-                <label className="text-xs text-[#94A3B8] block mb-1">Font Size</label>
-                <div className="flex gap-2">
-                  {(['10pt', '12pt', '14pt']).map(size => (
-                    <button 
-                      key={size}
-                      onClick={() => setPdfSettings(s => ({ ...s, fontSize: size }))}
-                      className={`flex-1 py-1.5 rounded text-xs transition-colors ${pdfSettings.fontSize === size ? 'bg-[#3B82F6] text-white' : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0]'}`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-[11px] text-[#4ADE80] flex items-center gap-1.5">
+                <span>✓</span> Includes Copyright Page, Dynamic Table of Contents, Running Headers & Footers with Arabic Page Numbers.
+              </p>
             </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="mt-2">
           <Button variant="ghost" onClick={() => setOpen(false)} className="text-[#94A3B8] border-0">Cancel</Button>
-          <Button onClick={handleExport} disabled={loading} className="gradient-btn text-white">
+          <Button onClick={handleExport} disabled={loading} className="gradient-btn text-white shadow-lg shadow-blue-500/20">
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Export {format.toUpperCase()}
+            {format === 'print' ? 'Open Print Preview' : `Export ${format.toUpperCase()}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -178,93 +201,397 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
   )
 }
 
-function generateHtmlBook(book: any, fontSize: string = '12pt'): string {
-  const chaptersHtml = book.chapters
-    ?.sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-    .map((ch: any) => `
-      <div class="chapter">
-        <h2>${ch.title}</h2>
+function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: string; font?: string } = {}): string {
+  const fontFamilies: Record<string, string> = {
+    georgia: "'Georgia', 'Palatino Linotype', serif",
+    times: "'Times New Roman', Times, serif",
+    garamond: "'Garamond', 'Baskerville', 'Georgia', serif",
+    sans: "'Inter', system-ui, -apple-system, sans-serif",
+  }
+  const chosenFont = fontFamilies[settings.font || 'georgia'] || fontFamilies.georgia
+  const fontSize = settings.fontSize || '11pt'
+
+  // Estimate page numbers for Dynamic Table of Contents
+  let runningPage = 1
+  const tocEntries: { title: string; page: number; isSub?: boolean }[] = []
+
+  // Estimate page count for chapters (~250 words per book page)
+  const chaptersWithPages = (book.chapters || []).sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((ch: any) => {
+    const wordCount = ch.wordCount || ch.content?.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length || 250
+    const pageSpan = Math.max(1, Math.ceil(wordCount / 250))
+    const startPage = runningPage
+    tocEntries.push({ title: ch.title, page: startPage })
+    runningPage += pageSpan
+    return { ...ch, startPage, wordCount }
+  })
+
+  // Bibliography & Back Matter page calculations
+  let bibStartPage = runningPage
+  if (book.bibliographyEntries?.length > 0) {
+    tocEntries.push({ title: 'Bibliography', page: bibStartPage })
+    runningPage += Math.max(1, Math.ceil(book.bibliographyEntries.length / 4))
+  }
+
+  const authorBioFm = book.backMatter?.find((bm: any) => bm.type === 'about_author')
+  let authorBioPage = runningPage
+  if (authorBioFm) {
+    tocEntries.push({ title: 'About the Author', page: authorBioPage })
+  }
+
+  // Generate Chapters HTML with page breaks and chapter numbers
+  const chaptersHtml = chaptersWithPages.map((ch: any) => `
+    <div class="chapter-page">
+      <div class="chapter-header-spacer"></div>
+      <h2 class="chapter-title">${ch.title}</h2>
+      <div class="chapter-body">
         ${ch.content || '<p></p>'}
       </div>
-    `).join('') || ''
+    </div>
+  `).join('\n')
 
-  const frontMatterHtml = book.frontMatter
-    ?.sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-    .map((fm: any) => {
-      const label = fm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-      return `<div class="front-matter"><h2>${label}</h2>${fm.content || ''}</div>`
-    }).join('') || ''
+  // Copyright Page HTML (KDP standard)
+  const copyrightFm = book.frontMatter?.find((fm: any) => fm.type === 'copyright_page')
+  const year = new Date().getFullYear()
+  const copyrightHtml = copyrightFm?.content || `
+    <div class="copyright-content">
+      <p><strong>${book.title}</strong></p>
+      ${book.subtitle ? `<p><em>${book.subtitle}</em></p>` : ''}
+      <p style="margin-top: 24px;">Copyright &copy; ${year} by ${book.authorName || 'Author'}.</p>
+      <p>All rights reserved.</p>
+      <p style="margin-top: 24px; text-align: justify;">No part of this publication may be reproduced, distributed, or transmitted in any form or by any means, including photocopying, recording, or other electronic or mechanical methods, without the prior written permission of the publisher, except in the case of brief quotations embodied in critical reviews and certain other noncommercial uses permitted by copyright law.</p>
+      <p style="margin-top: 24px;">Published by <strong>Dominion Writer</strong></p>
+      <p>www.dominionwriter.com</p>
+      <p>Inquiries: admin@dominionwriter.com</p>
+      <p style="margin-top: 24px;">First Edition: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+      <p>Printed in the United States of America</p>
+    </div>
+  `
 
-  const backMatterHtml = book.backMatter
-    ?.sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+  // Half-title & Title Page
+  const halfTitleFm = book.frontMatter?.find((fm: any) => fm.type === 'half_title')
+  const halfTitleHtml = halfTitleFm?.content || `
+    <div class="half-title-content">
+      <h1>${book.title.toUpperCase()}</h1>
+    </div>
+  `
+
+  const titlePageFm = book.frontMatter?.find((fm: any) => fm.type === 'title_page')
+  const titlePageHtml = titlePageFm?.content || `
+    <div class="title-page-content">
+      <h1>${book.title}</h1>
+      ${book.subtitle ? `<h2>${book.subtitle}</h2>` : ''}
+      <div class="author-byline">By ${book.authorName || 'Author'}</div>
+      <div class="publisher-imprint">
+        <p>DOMINION WRITER PRESS</p>
+        <p>www.dominionwriter.com</p>
+      </div>
+    </div>
+  `
+
+  // Dedication Page
+  const dedicationFm = book.frontMatter?.find((fm: any) => fm.type === 'dedication')
+  const dedicationHtml = dedicationFm?.content ? `
+    <div class="dedication-page">
+      <div class="dedication-content">
+        ${dedicationFm.content}
+      </div>
+    </div>
+  ` : ''
+
+  // Dynamic Table of Contents HTML
+  const tocHtml = `
+    <div class="toc-page">
+      <h2 class="toc-title">Table of Contents</h2>
+      <div class="toc-list">
+        ${tocEntries.map(entry => `
+          <div class="toc-item">
+            <span class="toc-item-title">${entry.title}</span>
+            <span class="toc-leader"></span>
+            <span class="toc-page-num">${entry.page}</span>
+          </div>
+        `).join('\n')}
+      </div>
+    </div>
+  `
+
+  // Back Matter: Bibliography with hanging indent and strict alphabetical sorting
+  let bibliographyHtml = ''
+  if (book.bibliographyEntries?.length > 0) {
+    const sortedBib = [...book.bibliographyEntries].sort((a: any, b: any) => 
+      a.citationText.localeCompare(b.citationText)
+    )
+    bibliographyHtml = `
+      <div class="backmatter-page bibliography-page">
+        <h2 class="section-title">Bibliography</h2>
+        <div class="bibliography-list">
+          ${sortedBib.map((e: any) => `<div class="bib-entry">${e.citationText}</div>`).join('\n')}
+        </div>
+      </div>
+    `
+  }
+
+  // Back Matter: About the Author
+  let aboutAuthorHtml = ''
+  if (authorBioFm) {
+    aboutAuthorHtml = `
+      <div class="backmatter-page author-page">
+        ${authorBioFm.content}
+      </div>
+    `
+  }
+
+  // Other Back Matter
+  const otherBackMatterHtml = (book.backMatter || [])
+    .filter((bm: any) => !['about_author', 'back_cover'].includes(bm.type))
     .map((bm: any) => {
       const label = bm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-      return `<div class="back-matter"><h2>${label}</h2>${bm.content || ''}</div>`
-    }).join('') || ''
+      return `
+        <div class="backmatter-page">
+          <h2 class="section-title">${label}</h2>
+          <div>${bm.content || ''}</div>
+        </div>
+      `
+    }).join('\n')
 
-  const glossaryHtml = book.glossaryTerms?.length > 0 ? `
-    <div class="glossary">
-      <h2>Glossary</h2>
-      <dl>
-        ${book.glossaryTerms.map((t: any) => `<dt>${t.term}</dt><dd>${t.definition}</dd>`).join('\n')}
-      </dl>
-    </div>
-  ` : ''
-
-  const bibliographyHtml = book.bibliographyEntries?.length > 0 ? `
-    <div class="bibliography">
-      <h2>Bibliography</h2>
-      <ol>
-        ${book.bibliographyEntries.map((e: any) => `<li>${e.citationText}</li>`).join('\n')}
-      </ol>
-    </div>
-  ` : ''
-
-  return `
-<!DOCTYPE html>
-<html>
+  return `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${book.title}</title>
+  <title>${book.title} — Finished Book</title>
   <style>
-    @page { margin: 2.5cm; }
-    body { font-family: 'Georgia', 'Times New Roman', serif; font-size: ${fontSize}; line-height: 1.8; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 40px 20px; }
-    .title-page { text-align: center; padding-top: 200px; page-break-after: always; }
-    .title-page h1 { font-size: 28pt; margin-bottom: 12px; }
-    .title-page h2 { font-size: 16pt; font-weight: normal; color: #555; margin-bottom: 8px; }
-    .title-page .author { font-size: 14pt; color: #333; margin-top: 40px; }
-    h1 { font-size: 22pt; margin-top: 36pt; margin-bottom: 12pt; page-break-after: avoid; }
-    h2 { font-size: 18pt; margin-top: 28pt; margin-bottom: 10pt; page-break-after: avoid; }
-    h3 { font-size: 14pt; margin-top: 20pt; margin-bottom: 8px; }
-    p { margin: 8pt 0; text-align: justify; }
-    blockquote { border-left: 3px solid #333; padding-left: 16px; margin: 16pt 0; color: #444; font-style: italic; }
-    ul, ol { padding-left: 24pt; margin: 8pt 0; }
-    li { margin: 4pt 0; }
-    img { max-width: 100%; }
-    .chapter { page-break-before: always; }
-    .chapter:first-child { page-break-before: auto; }
-    .front-matter { margin-bottom: 40px; }
-    .back-matter { margin-top: 40px; }
-    dt { font-weight: bold; margin-top: 8px; }
-    dd { margin-left: 20px; color: #444; }
+    @page {
+      size: 6in 9in;
+      margin: 20mm 16mm 22mm 16mm;
+      @top-left {
+        content: "${book.authorName || ''}";
+        font-family: ${chosenFont};
+        font-size: 8.5pt;
+        font-style: italic;
+        color: #555555;
+      }
+      @top-right {
+        content: "${book.title}";
+        font-family: ${chosenFont};
+        font-size: 8.5pt;
+        font-style: italic;
+        color: #555555;
+      }
+      @bottom-center {
+        content: counter(page);
+        font-family: ${chosenFont};
+        font-size: 9pt;
+        color: #333333;
+      }
+    }
+
+    @page:first {
+      @top-left { content: normal; }
+      @top-right { content: normal; }
+      @bottom-center { content: normal; }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: ${chosenFont};
+      font-size: ${fontSize};
+      line-height: 1.75;
+      color: #111827;
+      background: #FFFFFF;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Page Breaks */
+    .half-title-page, .title-page, .copyright-page, .dedication-page, .toc-page, .chapter-page, .backmatter-page {
+      page-break-before: always;
+      position: relative;
+    }
+
+    /* Front Matter Formatting */
+    .half-title-content {
+      padding-top: 180px;
+      text-align: center;
+    }
+    .half-title-content h1 {
+      font-size: 20pt;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .title-page-content {
+      padding-top: 140px;
+      text-align: center;
+    }
+    .title-page-content h1 {
+      font-size: 26pt;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+    .title-page-content h2 {
+      font-size: 14pt;
+      font-weight: normal;
+      font-style: italic;
+      color: #4B5563;
+      margin-bottom: 40px;
+    }
+    .author-byline {
+      font-size: 14pt;
+      margin-top: 60px;
+    }
+    .publisher-imprint {
+      margin-top: 140px;
+      font-size: 10pt;
+      letter-spacing: 1px;
+      color: #6B7280;
+    }
+
+    .copyright-content {
+      padding-top: 100px;
+      max-width: 480px;
+      margin: 0 auto;
+      font-size: 9.5pt;
+      line-height: 1.7;
+    }
+
+    .dedication-content {
+      padding-top: 200px;
+      text-align: center;
+      font-style: italic;
+      font-size: 12pt;
+      line-height: 2;
+    }
+
+    /* Table of Contents */
+    .toc-title {
+      font-size: 18pt;
+      text-align: center;
+      margin-bottom: 30px;
+      padding-top: 40px;
+    }
+    .toc-list {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .toc-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 10.5pt;
+    }
+    .toc-item-title {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .toc-leader {
+      flex: 1;
+      border-bottom: 1px dotted #9CA3AF;
+      margin: 0 8px;
+      height: 1px;
+    }
+    .toc-page-num {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    /* Chapters & Body Text */
+    .chapter-header-spacer {
+      height: 40px;
+    }
+    .chapter-title {
+      font-size: 20pt;
+      text-align: center;
+      margin-top: 20px;
+      margin-bottom: 32px;
+      page-break-after: avoid;
+    }
+    .chapter-body p {
+      text-align: justify;
+      margin: 0;
+      text-indent: 1.5em;
+      line-height: 1.8;
+    }
+    .chapter-body p:first-of-type,
+    .chapter-body h2 + p,
+    .chapter-body h3 + p {
+      text-indent: 0; /* No first-line indent on opening paragraph */
+    }
+    .chapter-body h2, .chapter-body h3 {
+      text-align: left;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      page-break-after: avoid;
+    }
+
+    /* Bibliography & Hanging Indent */
+    .section-title {
+      font-size: 18pt;
+      text-align: center;
+      margin-top: 40px;
+      margin-bottom: 24px;
+      page-break-after: avoid;
+    }
+    .bibliography-list {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .bib-entry {
+      padding-left: 1.25cm;
+      text-indent: -1.25cm;
+      margin-bottom: 12px;
+      text-align: justify;
+      font-size: 10pt;
+      line-height: 1.6;
+    }
+
+    /* Print media rules */
+    @media print {
+      body {
+        width: 100%;
+      }
+      a {
+        text-decoration: none;
+        color: inherit;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="title-page">
-    <h1>${book.title}</h1>
-    ${book.subtitle ? `<h2>${book.subtitle}</h2>` : ''}
-    <div class="author">by ${book.authorName || 'Unknown Author'}</div>
+
+  <!-- Half Title Page -->
+  <div class="half-title-page">
+    ${halfTitleHtml}
   </div>
 
-  ${frontMatterHtml}
+  <!-- Title Page -->
+  <div class="title-page">
+    ${titlePageHtml}
+  </div>
 
+  <!-- Copyright Page -->
+  <div class="copyright-page">
+    ${copyrightHtml}
+  </div>
+
+  <!-- Dedication Page -->
+  ${dedicationHtml}
+
+  <!-- Dynamic Table of Contents -->
+  ${tocHtml}
+
+  <!-- Chapters (Body Matter) -->
   ${chaptersHtml}
 
-  ${backMatterHtml}
-
-  ${glossaryHtml}
-
+  <!-- Back Matter: Bibliography -->
   ${bibliographyHtml}
+
+  <!-- Back Matter: About the Author -->
+  ${aboutAuthorHtml}
+
+  <!-- Other Back Matter -->
+  ${otherBackMatterHtml}
+
 </body>
 </html>`
 }
