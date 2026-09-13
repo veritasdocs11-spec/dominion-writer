@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
-import Underline from '@tiptap/extension-underline'
 import { ResizableImage } from './extensions/resizable-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import Highlight from '@tiptap/extension-highlight'
@@ -182,7 +181,7 @@ export function BookEditor({ bookId }: { bookId: string }) {
     setSelectedChapterId(null)
   }
 
-  const userId = (session?.user as any)?.id || session?.user?.email
+  const userId = (session?.user as any)?.id || session?.user?.email || book?.userId
 
   // Fetch book safely
   const fetchBook = useCallback(async () => {
@@ -231,7 +230,6 @@ export function BookEditor({ bookId }: { bookId: string }) {
     extensions: [
       StarterKit,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Underline,
       ResizableImage,
       Placeholder.configure({
         placeholder: 'Start writing your manuscript here... or click "Auto-Write Full Book" at the top to draft the entire book with AI.',
@@ -457,7 +455,16 @@ export function BookEditor({ bookId }: { bookId: string }) {
 
   // Auto-write single chapter
   const autoWriteChapter = async () => {
-    if (!editor || (!selectedChapter && !selectedMatter) || !book || !userId) return
+    if (!editor) return
+    if (!selectedChapter && !selectedMatter) {
+      toast.info('Please select a chapter or front/back matter section from the sidebar.')
+      return
+    }
+    if (!book) return
+    if (!userId) {
+      toast.error('User session not active. Please refresh the page.')
+      return
+    }
     setAiLoading(true)
     let prompt = ''
     if (selectedMatter) {
@@ -480,12 +487,15 @@ Target length: At least 2,500 words. Format strictly as clean HTML (<p>, <h3>, <
         body: JSON.stringify({ userId, prompt, task: 'draft' }),
       })
       const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Server responded with status ${res.status}`)
+      }
       editor.commands.setContent(data.content)
-      toast.success(selectedMatter ? 'Section generated' : 'Chapter generated')
+      toast.success(selectedMatter ? 'Section generated successfully!' : 'Chapter generated successfully!')
       setTimeout(() => saveContent(), 200)
     } catch (err: any) {
-      toast.error(err.message || 'Auto-write failed')
+      console.error('Auto-write error:', err)
+      toast.error(err.message || 'Auto-write failed. Please check your API key or connection.')
     } finally {
       setAiLoading(false)
     }
@@ -493,7 +503,11 @@ Target length: At least 2,500 words. Format strictly as clean HTML (<p>, <h3>, <
 
   // Auto-write Full Book (Meeting target word counts like 50k words)
   const autoWriteFullBook = async () => {
-    if (!book || !userId) return
+    if (!book) return
+    if (!userId) {
+      toast.error('User session not active. Please refresh the page.')
+      return
+    }
     const targetWords = book.wordCountTarget || 50000
     // Plan chapter count: e.g. for 50k, 16-20 chapters
     const numChapters = Math.max(12, Math.min(22, Math.ceil(targetWords / 2500)))
@@ -522,7 +536,9 @@ NO other text or markdown wrappers.`
         body: JSON.stringify({ userId, prompt: outlinePrompt, task: 'draft' }),
       })
       const outlineData = await outlineRes.json()
-      if (outlineData.error) throw new Error(outlineData.error)
+      if (!outlineRes.ok || outlineData.error) {
+        throw new Error(outlineData.error || `Failed to generate outline (${outlineRes.status})`)
+      }
 
       let outline: { title: string; summary: string }[] = []
       try {
@@ -1071,16 +1087,22 @@ Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). 
                 style={{ fontFamily: fontFamily === 'georgia' ? "'Georgia', serif" : "'Inter', sans-serif" }}
               >
                 {/* Header context */}
-                <div className="mb-8 pb-4 border-b border-border/40 flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                <div className={`mb-8 pb-4 border-b flex items-center justify-between transition-colors ${
+                  workspaceTheme === 'paper' ? 'border-slate-200' : 'border-[#1E293B]'
+                }`}>
+                  <span className={`text-xs uppercase tracking-widest font-bold ${
+                    workspaceTheme === 'paper' ? 'text-slate-800' : 'text-slate-300'
+                  }`}>
                     {selectedMatter ? `Front / Back Matter: ${selectedMatter.label}` : selectedChapter?.title}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className={`text-xs font-semibold ${
+                    workspaceTheme === 'paper' ? 'text-slate-600' : 'text-slate-400'
+                  }`}>
                     {selectedChapter ? `${(selectedChapter.wordCount || 0).toLocaleString()} words` : ''}
                   </span>
                 </div>
 
-                <div className="tiptap-editor">
+                <div className={`tiptap-editor ${workspaceTheme === 'paper' ? 'tiptap-theme-paper' : 'tiptap-theme-dark'}`}>
                   <EditorContent editor={editor} />
                 </div>
               </div>
