@@ -38,6 +38,7 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { cleanAiContent, isAiRefusal } from '@/lib/clean-content'
 
 interface Chapter {
   id: string; title: string; content: string; orderIndex: number; wordCount: number
@@ -60,7 +61,7 @@ interface BibliographyEntry {
 }
 
 interface BookData {
-  id: string; title: string; subtitle?: string; authorName?: string; bookType: string
+  id: string; userId?: string; title: string; subtitle?: string; authorName?: string; bookType: string
   style: string; language: string; status: string; description?: string; wordCountTarget?: number | null
   bibliographyFormat: string; lastAutosavedAt?: string; updatedAt: string
   chapters: Chapter[]; frontMatter: FrontMatter[]; backMatter: BackMatterItem[]
@@ -279,12 +280,30 @@ export function BookEditor({ bookId }: { bookId: string }) {
     } else if (editor && selectedMatter) {
       const matterList = selectedMatter.type === 'front' ? book?.frontMatter : book?.backMatter
       const matter = matterList?.find(m => m.type === selectedMatter.kind)
-      const targetContent = matter?.content || '<p></p>'
+      let targetContent = matter?.content || '<p></p>'
+
+      if (
+        selectedMatter.kind === 'bibliography' &&
+        (!matter?.content || matter.content === '<p></p>' || matter.content.trim() === '' || matter.content.includes('Start writing your manuscript')) &&
+        book?.bibliographyEntries &&
+        book.bibliographyEntries.length > 0
+      ) {
+        const sortedBib = [...book.bibliographyEntries].sort((a: any, b: any) =>
+          a.citationText.localeCompare(b.citationText)
+        )
+        targetContent = `<div class="bibliography-container"><h2 style="text-align: center; margin-bottom: 24px;">Bibliography</h2>${sortedBib
+          .map(
+            (e: any) =>
+              `<p style="padding-left: 1.25cm; text-indent: -1.25cm; margin-bottom: 12px; line-height: 1.6;">${cleanAiContent(e.citationText)}</p>`
+          )
+          .join('')}</div>`
+      }
+
       if (editor.getHTML() !== targetContent) {
         setTimeout(() => editor.commands.setContent(targetContent), 0)
       }
     }
-  }, [selectedChapterId, selectedMatter, editor])
+  }, [selectedChapterId, selectedMatter, editor, book?.bibliographyEntries, book?.frontMatter, book?.backMatter])
 
   // Autosave
   const saveContent = useCallback(async () => {
@@ -430,10 +449,10 @@ export function BookEditor({ bookId }: { bookId: string }) {
 
     setAiLoading(true)
     const prompts: Record<string, string> = {
-      rewrite: `Rewrite the following text while preserving its core style and meaning. Return only clean HTML paragraphs (<p>). Do NOT use markdown:\n\n${text}`,
-      expand: `Expand the following passage with immersive detail, vivid descriptions, dialogue, and atmospheric depth. Return only clean HTML (<p>, <h3>). Do NOT use markdown:\n\n${text}`,
-      shorten: `Condense the following text while retaining essential narrative clarity. Return only clean HTML (<p>). Do NOT use markdown:\n\n${text}`,
-      improve: `Refine and elevate the prose, fixing flow, grammar, and literary nuance. Return only clean HTML (<p>). Do NOT use markdown:\n\n${text}`,
+      rewrite: `Rewrite the following text while preserving its core style and meaning. Return only clean HTML paragraphs (<p>). Do NOT use markdown code fences:\n\n${text}`,
+      expand: `Expand the following passage with immersive detail, vivid descriptions, dialogue, and atmospheric depth. Return only clean HTML (<p>, <h3>). Do NOT use markdown code fences:\n\n${text}`,
+      shorten: `Condense the following text while retaining essential narrative clarity. Return only clean HTML (<p>). Do NOT use markdown code fences:\n\n${text}`,
+      improve: `Refine and elevate the prose, fixing flow, grammar, and literary nuance. Return only clean HTML (<p>). Do NOT use markdown code fences:\n\n${text}`,
     }
 
     try {
@@ -444,7 +463,8 @@ export function BookEditor({ bookId }: { bookId: string }) {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      editor.chain().focus().deleteSelection().insertContent(data.content).run()
+      const cleaned = cleanAiContent(data.content)
+      editor.chain().focus().deleteSelection().insertContent(cleaned).run()
       toast.success(`Text ${action}d successfully`)
     } catch (err: any) {
       toast.error(err.message || 'AI action failed')
@@ -467,17 +487,35 @@ export function BookEditor({ bookId }: { bookId: string }) {
     }
     setAiLoading(true)
     let prompt = ''
-    if (selectedMatter) {
+
+    if (selectedMatter?.kind === 'bibliography') {
+      const standardNames: Record<string, string> = {
+        apa: 'APA (7th edition)',
+        mla: 'MLA (9th edition)',
+        harvard: 'Harvard style',
+        chicago: 'Chicago style (Notes & Bibliography)',
+        iso690: 'ISO 690 standard (SURNAME in all caps)',
+        abnt: 'ABNT standard (NBR 6023, SURNAME in all caps)',
+      }
+      const chosenStandardName = standardNames[book.bibliographyFormat] || 'APA (7th edition)'
+      prompt = `Generate a realistic academic/literary bibliography of 8-12 sources relevant to the book "${book.title}" (${book.style} ${book.bookType}).
+Format every citation strictly in ${chosenStandardName}.
+Rules:
+- Strictly alphabetical by author's last name
+- Include books, journal articles, and authoritative studies
+- Return ONLY a JSON array of strings, where each string is a complete citation.
+Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). Title. Journal, 12(3), 45-60."]`
+    } else if (selectedMatter) {
       prompt = `Write comprehensive content for the "${selectedMatter.label}" section of the book "${book.title}" by ${book.authorName || 'the author'}.
 Description: ${book.description || 'General themes and concepts.'}
-Format strictly as clean HTML (<p>, <h2>, <h3>, <em>). Do NOT use markdown.`
+Format strictly as clean HTML (<p>, <h2>, <h3>, <em>). Do NOT use markdown code fences.`
     } else if (selectedChapter) {
       prompt = `Write a full, immersive, complete chapter titled "${selectedChapter.title}" for the book "${book.title}".
 Style: ${book.style}, Genre: ${book.bookType}, Language: ${book.language}.
 Book Description: ${book.description || 'No description provided.'}
 Write comprehensive narrative prose with rich dialogue, scene setting, character development, and evocative exposition.
 Divide the chapter into sections using <h3> subheadings.
-Target length: At least 2,500 words. Format strictly as clean HTML (<p>, <h3>, <strong>, <em>). NO MARKDOWN.`
+Target length: At least 2,500 words. Format strictly as clean HTML (<p>, <h3>, <strong>, <em>). NO MARKDOWN CODE FENCES.`
     }
 
     try {
@@ -490,7 +528,39 @@ Target length: At least 2,500 words. Format strictly as clean HTML (<p>, <h3>, <
       if (!res.ok || data.error) {
         throw new Error(data.error || `Server responded with status ${res.status}`)
       }
-      editor.commands.setContent(data.content)
+
+      if (selectedMatter?.kind === 'bibliography') {
+        let citations: string[] = []
+        try {
+          const cleanedJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim()
+          citations = JSON.parse(cleanedJson)
+        } catch {
+          citations = cleanAiContent(data.content).split('\n').filter(Boolean)
+        }
+        if (Array.isArray(citations) && citations.length > 0) {
+          for (const cite of citations) {
+            await fetch(`/api/books/${bookId}/matter`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookId, type: book.bibliographyFormat || 'apa', content: cite, action: 'add-bibliography' }),
+            })
+          }
+          const sorted = [...citations].sort((a, b) => a.localeCompare(b))
+          const formattedHtml = `<div class="bibliography-container"><h2 style="text-align: center; margin-bottom: 24px;">Bibliography</h2>${sorted.map(c => `<p style="padding-left: 1.25cm; text-indent: -1.25cm; margin-bottom: 12px; line-height: 1.6;">${cleanAiContent(c)}</p>`).join('')}</div>`
+          editor.commands.setContent(formattedHtml)
+          await fetchBook()
+          toast.success(`Bibliography generated with ${citations.length} citations!`)
+          setTimeout(() => saveContent(), 200)
+          return
+        }
+      }
+
+      const cleanedContent = cleanAiContent(data.content)
+      if (isAiRefusal(cleanedContent)) {
+        throw new Error('AI safety refusal encountered. Please adjust prompt or chapter title.')
+      }
+
+      editor.commands.setContent(cleanedContent)
       toast.success(selectedMatter ? 'Section generated successfully!' : 'Chapter generated successfully!')
       setTimeout(() => saveContent(), 200)
     } catch (err: any) {
@@ -550,6 +620,15 @@ NO other text or markdown wrappers.`
 
       if (!Array.isArray(outline) || outline.length === 0) throw new Error('Invalid outline generated.')
 
+      // Clean up initial template chapter if this was an empty placeholder book
+      if (book.chapters && book.chapters.length === 1) {
+        const existingChap = book.chapters[0]
+        const words = existingChap.content?.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length || 0
+        if (words < 80) {
+          await fetch(`/api/books/${bookId}/chapters?id=${existingChap.id}`, { method: 'DELETE' })
+        }
+      }
+
       // Step 2: Front Matter (KDP Standard: Title, Copyright, Dedication)
       setGenerationProgress({
         isOpen: true,
@@ -585,14 +664,14 @@ NO other text or markdown wrappers.`
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          prompt: `Write an elegant, poignant dedication for a ${book.bookType} book titled "${book.title}". Return only clean HTML with <p style="text-align: center; font-style: italic;">.`,
+          prompt: `Write an elegant, poignant dedication for a ${book.bookType} book titled "${book.title}". Return only clean HTML with <p style="text-align: center; font-style: italic;"> without markdown code fences.`,
           task: 'draft',
         }),
       })
       const dedData = await dedRes.json()
       const dedHtml = dedData.error
         ? `<p style="text-align: center; font-style: italic;">Dedicated to all who pursue knowledge without boundaries.</p>`
-        : dedData.content
+        : cleanAiContent(dedData.content)
 
       await fetch(`/api/books/${bookId}/matter`, {
         method: 'POST',
@@ -600,7 +679,7 @@ NO other text or markdown wrappers.`
         body: JSON.stringify({ bookId, type: 'dedication', content: dedHtml, action: 'upsert-front' }),
       })
 
-      // Step 3: Sequential Chapters Generation
+      // Step 3: Sequential Chapters Generation with Auto-Retry
       let previousSummaries = ''
       for (let i = 0; i < outline.length; i++) {
         const chap = outline[i]
@@ -611,35 +690,66 @@ NO other text or markdown wrappers.`
           progress: pct,
         })
 
-        // Create Chapter in DB
+        // Create Chapter placeholder in DB
         const createRes = await fetch(`/api/books/${bookId}/chapters`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookId, title: chap.title, content: '<p>Writing chapter content...</p>', action: 'create' }),
+          body: JSON.stringify({ bookId, title: chap.title, content: '<p>Drafting chapter...</p>', action: 'create' }),
         })
         const newChap = await createRes.json()
 
-        // Generate full-depth chapter content
-        const chapPrompt = `Write the complete, full-length text for "${chap.title}" of the book "${book.title}".
+        // Generate full-depth chapter content with auto-retry if short or refusal
+        let finalContent = ''
+        let attempts = 0
+        const maxAttempts = 2
+
+        while (attempts < maxAttempts) {
+          attempts++
+          try {
+            const chapPrompt = `Write the complete, full-length literary text for "${chap.title}" of the book "${book.title}".
 Target length: At least ${wordsPerChapter} words.
 Chapter Summary & Scenes: ${chap.summary}
 Previous Chapter Context: ${previousSummaries || 'This is the opening chapter of the book.'}
 Genre: ${book.bookType}, Style: ${book.style}. Language: ${book.language}.
-Write fully developed literary scenes with rich dialogue, immersive world-building, pacing, character motivations, and narrative depth. Do NOT summarize.
-Organize the chapter with <h3> subheadings and formatted <p> paragraphs. Format strictly as clean HTML. NO MARKDOWN.`
+Write fully developed literary narrative with rich dialogue, immersive atmosphere, character motivations, and dramatic pacing.
+Organize the chapter with <h3> subheadings and formatted <p> paragraphs. Format strictly as clean HTML tags. Do NOT use markdown code fences.`
 
-        const contentRes = await fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, prompt: chapPrompt, task: 'draft' }),
-        })
-        const contentData = await contentRes.json()
-        const finalContent = contentData.error ? `<p>Failed to generate chapter text.</p>` : contentData.content
+            const contentRes = await fetch('/api/ai', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, prompt: chapPrompt, task: 'draft' }),
+            })
+            const contentData = await contentRes.json()
+            if (!contentRes.ok || contentData.error) {
+              throw new Error(contentData.error || 'AI generation failed')
+            }
+
+            const cleaned = cleanAiContent(contentData.content)
+            const wordCount = cleaned.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length
+
+            if (isAiRefusal(cleaned) || wordCount < 150) {
+              if (attempts < maxAttempts) {
+                console.warn(`Chapter ${chap.title} attempt ${attempts} yielded short/refusal content (${wordCount} words). Retrying...`)
+                continue
+              }
+            }
+
+            finalContent = cleaned
+            break
+          } catch (err: any) {
+            console.error(`Attempt ${attempts} failed for ${chap.title}:`, err)
+            if (attempts >= maxAttempts) {
+              finalContent = `<p>An error occurred generating ${chap.title}. Please click 'Auto-Write Chapter' above to regenerate.</p>`
+            }
+          }
+        }
+
+        const words = finalContent.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length
 
         await fetch(`/api/books/${bookId}/chapters`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: newChap.id, bookId, title: chap.title, content: finalContent, action: 'update' }),
+          body: JSON.stringify({ id: newChap.id, bookId, title: chap.title, content: finalContent, wordCount: words, action: 'update' }),
         })
 
         previousSummaries += `\n- ${chap.title}: ${chap.summary.substring(0, 150)}`
@@ -683,7 +793,7 @@ Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). 
         if (!bibData.error) {
           const cleanedBib = bibData.content.replace(/```json/gi, '').replace(/```/g, '').trim()
           const citations = JSON.parse(cleanedBib)
-          if (Array.isArray(citations)) {
+          if (Array.isArray(citations) && citations.length > 0) {
             for (const cite of citations) {
               await fetch(`/api/books/${bookId}/matter`, {
                 method: 'POST',
@@ -691,6 +801,19 @@ Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). 
                 body: JSON.stringify({ bookId, type: book.bibliographyFormat || 'apa', content: cite, action: 'add-bibliography' }),
               })
             }
+            // Compile into BackMatter 'bibliography' record with hanging indent
+            const sortedBib = [...citations].sort((a: any, b: any) => a.localeCompare(b))
+            const compiledHtml = `<div class="bibliography-container"><h2 style="text-align: center; margin-bottom: 24px;">Bibliography</h2>${sortedBib
+              .map(
+                (c: string) =>
+                  `<p style="padding-left: 1.25cm; text-indent: -1.25cm; margin-bottom: 12px; line-height: 1.6;">${cleanAiContent(c)}</p>`
+              )
+              .join('')}</div>`
+            await fetch(`/api/books/${bookId}/matter`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookId, type: 'bibliography', content: compiledHtml, action: 'upsert-back' }),
+            })
           }
         }
       } catch { /* proceed */ }

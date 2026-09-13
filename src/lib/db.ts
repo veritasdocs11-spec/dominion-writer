@@ -215,8 +215,9 @@ export const db = {
   },
 
   apiKey: {
-    async findMany({ where, orderBy }: { where: { userId: string }; orderBy?: { createdAt?: 'asc' | 'desc' } }) {
-      let query = supabase.from('ApiKey').select('*').eq('userId', where.userId)
+    async findMany({ where, orderBy }: { where?: { userId?: string }; orderBy?: { createdAt?: 'asc' | 'desc' } } = {}) {
+      let query = supabase.from('ApiKey').select('*')
+      if (where?.userId) query = query.eq('userId', where.userId)
       if (orderBy?.createdAt) {
         query = query.order('createdAt', { ascending: orderBy.createdAt === 'asc' })
       }

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { cleanAiContent } from '@/lib/clean-content'
 
 interface ExportButtonProps {
   bookId: string
@@ -41,61 +42,26 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
         setOpen(false)
         setLoading(false)
         return
-      } else if (format === 'print') {
-        // Open dedicated KDP Print Preview Window for vector-crisp Print & Save-to-PDF
+      } else {
+        // High-fidelity KDP Print & Vector-PDF Generation via browser print engine
+        // (Guarantees crisp selectable vector text, exact page sizes, and 0 blank pages)
         const html = generateHtmlBook(book, pdfSettings)
         const printWindow = window.open('', '_blank')
         if (!printWindow) {
-          throw new Error('Pop-up blocked. Please allow pop-ups to preview the print book.')
+          throw new Error('Pop-up blocked. Please allow pop-ups to open the book preview.')
         }
         printWindow.document.open()
         printWindow.document.write(html)
         printWindow.document.close()
         
-        // Wait for styles/images to settle, then open print dialog
         setTimeout(() => {
           printWindow.focus()
           printWindow.print()
-        }, 500)
+        }, 600)
         
-        toast.success('Print window opened! You can select "Save as PDF" for KDP.')
+        toast.success('Print window opened! In Destination, choose "Save as PDF" to save your KDP interior.', { duration: 6000 })
         setOpen(false)
         setLoading(false)
-        return
-      } else {
-        // PDF: Use html2pdf.js for direct file download
-        toast.loading('Generating KDP interior PDF...', { id: 'pdf-gen' })
-        const content = generateHtmlBook(book, pdfSettings)
-        const element = document.createElement('div')
-        element.innerHTML = content
-        
-        element.style.position = 'absolute'
-        element.style.left = '-9999px'
-        element.style.top = '0'
-        element.style.width = pdfSettings.pageSize === 'kdp6x9' ? '6in' : '8.5in'
-        document.body.appendChild(element)
-        
-        const html2pdf = (await import('html2pdf.js')).default
-        
-        const formatDimension: Record<string, [number, number]> = {
-          kdp6x9: [152.4, 228.6], // 6 x 9 inches in mm
-          a4: [210, 297],
-          letter: [215.9, 279.4],
-          a5: [148, 210],
-        }
-
-        const opt = {
-          margin: [15, 15, 15, 15],
-          filename: `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}_KDP.pdf`,
-          image: { type: 'jpeg' as const, quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: formatDimension[pdfSettings.pageSize] || [152.4, 228.6], orientation: 'portrait' as const },
-          pagebreak: { mode: ['css', 'legacy'] }
-        }
-        
-        await html2pdf().set(opt).from(element).save()
-        document.body.removeChild(element)
-        toast.success('PDF downloaded successfully!', { id: 'pdf-gen' })
       }
 
       // Log export
@@ -107,7 +73,7 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
 
       setOpen(false)
     } catch (err: any) {
-      toast.error(err.message || 'Export failed', { id: 'pdf-gen' })
+      toast.error(err.message || 'Export failed')
     } finally {
       setLoading(false)
     }
@@ -130,8 +96,8 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-4">
           {[
-            { fmt: 'print' as const, icon: Printer, label: 'KDP Print Preview', desc: 'Vector PDF / Print' },
-            { fmt: 'pdf' as const, icon: FileText, label: 'Direct PDF', desc: 'Pre-formatted interior' },
+            { fmt: 'pdf' as const, icon: FileText, label: 'KDP Interior PDF', desc: 'Vector print & digital' },
+            { fmt: 'print' as const, icon: Printer, label: 'Print Preview', desc: 'Page-by-page proof' },
             { fmt: 'docx' as const, icon: FileType, label: 'Word (DOCX)', desc: 'With headers & footers' },
             { fmt: 'epub' as const, icon: BookOpen, label: 'EPUB E-Book', desc: 'Standard reader format' },
           ].map(({ fmt, icon: Icon, label, desc }) => (
@@ -183,7 +149,7 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
 
             <div className="pt-1">
               <p className="text-[11px] text-[#4ADE80] flex items-center gap-1.5">
-                <span>✓</span> Includes Copyright Page, Dynamic Table of Contents, Running Headers & Footers with Arabic Page Numbers.
+                <span>✓</span> Includes Half-Title, Title Page, Copyright, Table of Contents, Running Headers & Footers with Page Numbers.
               </p>
             </div>
           </div>
@@ -193,7 +159,7 @@ export function ExportButton({ bookId, bookTitle }: ExportButtonProps) {
           <Button variant="ghost" onClick={() => setOpen(false)} className="text-[#94A3B8] border-0">Cancel</Button>
           <Button onClick={handleExport} disabled={loading} className="gradient-btn text-white shadow-lg shadow-blue-500/20">
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {format === 'print' ? 'Open Print Preview' : `Export ${format.toUpperCase()}`}
+            {format === 'print' ? 'Open Print Preview' : format === 'pdf' ? 'Export KDP PDF' : `Export ${format.toUpperCase()}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -217,12 +183,13 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
 
   // Estimate page count for chapters (~250 words per book page)
   const chaptersWithPages = (book.chapters || []).sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((ch: any) => {
-    const wordCount = ch.wordCount || ch.content?.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length || 250
+    const rawContent = cleanAiContent(ch.content || '')
+    const wordCount = ch.wordCount || rawContent.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length || 250
     const pageSpan = Math.max(1, Math.ceil(wordCount / 250))
     const startPage = runningPage
     tocEntries.push({ title: ch.title, page: startPage })
     runningPage += pageSpan
-    return { ...ch, startPage, wordCount }
+    return { ...ch, startPage, wordCount, cleanContent: rawContent }
   })
 
   // Bibliography & Back Matter page calculations
@@ -244,7 +211,7 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
       <div class="chapter-header-spacer"></div>
       <h2 class="chapter-title">${ch.title}</h2>
       <div class="chapter-body">
-        ${ch.content || '<p></p>'}
+        ${ch.cleanContent || '<p></p>'}
       </div>
     </div>
   `).join('\n')
@@ -252,7 +219,7 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
   // Copyright Page HTML (KDP standard)
   const copyrightFm = book.frontMatter?.find((fm: any) => fm.type === 'copyright_page')
   const year = new Date().getFullYear()
-  const copyrightHtml = copyrightFm?.content || `
+  const copyrightHtml = copyrightFm?.content ? cleanAiContent(copyrightFm.content) : `
     <div class="copyright-content">
       <p><strong>${book.title}</strong></p>
       ${book.subtitle ? `<p><em>${book.subtitle}</em></p>` : ''}
@@ -269,14 +236,14 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
 
   // Half-title & Title Page
   const halfTitleFm = book.frontMatter?.find((fm: any) => fm.type === 'half_title')
-  const halfTitleHtml = halfTitleFm?.content || `
+  const halfTitleHtml = halfTitleFm?.content ? cleanAiContent(halfTitleFm.content) : `
     <div class="half-title-content">
       <h1>${book.title.toUpperCase()}</h1>
     </div>
   `
 
   const titlePageFm = book.frontMatter?.find((fm: any) => fm.type === 'title_page')
-  const titlePageHtml = titlePageFm?.content || `
+  const titlePageHtml = titlePageFm?.content ? cleanAiContent(titlePageFm.content) : `
     <div class="title-page-content">
       <h1>${book.title}</h1>
       ${book.subtitle ? `<h2>${book.subtitle}</h2>` : ''}
@@ -293,7 +260,7 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
   const dedicationHtml = dedicationFm?.content ? `
     <div class="dedication-page">
       <div class="dedication-content">
-        ${dedicationFm.content}
+        ${cleanAiContent(dedicationFm.content)}
       </div>
     </div>
   ` : ''
@@ -324,10 +291,22 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
       <div class="backmatter-page bibliography-page">
         <h2 class="section-title">Bibliography</h2>
         <div class="bibliography-list">
-          ${sortedBib.map((e: any) => `<div class="bib-entry">${e.citationText}</div>`).join('\n')}
+          ${sortedBib.map((e: any) => `<div class="bib-entry">${cleanAiContent(e.citationText)}</div>`).join('\n')}
         </div>
       </div>
     `
+  } else {
+    const bibBackMatter = book.backMatter?.find((bm: any) => bm.type === 'bibliography')
+    if (bibBackMatter?.content) {
+      bibliographyHtml = `
+        <div class="backmatter-page bibliography-page">
+          <h2 class="section-title">Bibliography</h2>
+          <div class="bibliography-list">
+            ${cleanAiContent(bibBackMatter.content)}
+          </div>
+        </div>
+      `
+    }
   }
 
   // Back Matter: About the Author
@@ -335,20 +314,20 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
   if (authorBioFm) {
     aboutAuthorHtml = `
       <div class="backmatter-page author-page">
-        ${authorBioFm.content}
+        ${cleanAiContent(authorBioFm.content)}
       </div>
     `
   }
 
   // Other Back Matter
   const otherBackMatterHtml = (book.backMatter || [])
-    .filter((bm: any) => !['about_author', 'back_cover'].includes(bm.type))
+    .filter((bm: any) => !['about_author', 'back_cover', 'bibliography'].includes(bm.type))
     .map((bm: any) => {
       const label = bm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
       return `
         <div class="backmatter-page">
           <h2 class="section-title">${label}</h2>
-          <div>${bm.content || ''}</div>
+          <div>${cleanAiContent(bm.content || '')}</div>
         </div>
       `
     }).join('\n')
@@ -357,7 +336,7 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${book.title} — Finished Book</title>
+  <title>${book.title} — Amazon KDP Interior</title>
   <style>
     @page {
       size: 6in 9in;
@@ -396,15 +375,81 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
       font-size: ${fontSize};
       line-height: 1.75;
       color: #111827;
-      background: #FFFFFF;
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Page Breaks */
-    .half-title-page, .title-page, .copyright-page, .dedication-page, .toc-page, .chapter-page, .backmatter-page {
+    /* Screen preview styling (Elegant Book Card Layout) */
+    @media screen {
+      body {
+        background-color: #0b0f19;
+        padding: 30px 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .half-title-page, .title-page, .copyright-page, .dedication-page, .toc-page, .chapter-page, .backmatter-page {
+        background: #ffffff;
+        width: 6in;
+        min-height: 9in;
+        padding: 0.8in 0.65in;
+        margin: 0 auto 30px auto;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+        border-radius: 4px;
+        color: #111827;
+      }
+      .kdp-preview-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 6in;
+        margin: 0 auto 24px auto;
+        padding: 12px 18px;
+        background: #1e293b;
+        color: #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .toolbar-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #60a5fa;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .toolbar-hint {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+      .print-btn {
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .print-btn:hover {
+        background: #1d4ed8;
+      }
+    }
+
+    /* Page Breaks for Print & PDF */
+    .half-title-page {
+      page-break-before: avoid;
+      break-before: avoid;
+      position: relative;
+    }
+
+    .title-page, .copyright-page, .dedication-page, .toc-page, .chapter-page, .backmatter-page {
       page-break-before: always;
+      break-before: page;
       position: relative;
     }
 
@@ -515,7 +560,7 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
     .chapter-body p:first-of-type,
     .chapter-body h2 + p,
     .chapter-body h3 + p {
-      text-indent: 0; /* No first-line indent on opening paragraph */
+      text-indent: 0;
     }
     .chapter-body h2, .chapter-body h3 {
       text-align: left;
@@ -548,7 +593,22 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
     /* Print media rules */
     @media print {
       body {
-        width: 100%;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      .half-title-page, .title-page, .copyright-page, .dedication-page, .toc-page, .chapter-page, .backmatter-page {
+        background: transparent !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        min-height: auto !important;
+        border-radius: 0 !important;
+      }
+      .kdp-preview-toolbar {
+        display: none !important;
       }
       a {
         text-decoration: none;
@@ -558,6 +618,15 @@ function generateHtmlBook(book: any, settings: { pageSize?: string; fontSize?: s
   </style>
 </head>
 <body>
+
+  <!-- Screen Toolbar -->
+  <div class="kdp-preview-toolbar">
+    <div>
+      <div class="toolbar-title">Amazon KDP Interior Ready</div>
+      <div class="toolbar-hint">For PDF: Destination &rarr; &quot;Save as PDF&quot;, Margins &rarr; &quot;None&quot; or &quot;Default&quot;, uncheck Headers &amp; footers.</div>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
 
   <!-- Half Title Page -->
   <div class="half-title-page">

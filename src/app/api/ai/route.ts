@@ -6,7 +6,17 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an elite, professional book author, literary editor, and manuscript formatter. Always return pure, production-ready text or HTML tags (<p>, <h3>, <strong>, <em>) directly. NEVER wrap output in markdown code fences such as ```html or ``` at the beginning or end. Output strictly raw text or HTML.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: maxTokens,
+    }),
   })
   const json = await res.json()
   if (json.error) throw new Error(json.error.message || 'OpenAI API error')
@@ -32,7 +42,7 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
   try {
     keys = await db.apiKey.findMany({ where: { userId } })
     if (keys.length === 0 && userId.includes('@')) {
-      const user = await db.user.findByEmail(userId)
+      const user = await db.user.findUnique({ where: { email: userId } })
       if (user?.id) {
         keys = await db.apiKey.findMany({ where: { userId: user.id } })
       }

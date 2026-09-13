@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, PageNumber, NumberFormat } from 'docx'
 import Epub from 'epub-gen-memory'
+import { cleanAiContent } from '@/lib/clean-content'
 
 export async function POST(request: Request) {
   try {
@@ -64,7 +65,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const stripHtml = (html: string) => {
       if (!html) return ''
-      return html
+      const cleaned = cleanAiContent(html)
+      return cleaned
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<\/p>/gi, '\n\n')
@@ -91,13 +93,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         alignment: AlignmentType.CENTER,
         spacing: { before: 2800, after: 400 },
       }))
-      children.push(new Paragraph({ text: '', pageBreakBefore: true }))
 
-      // 2. Title Page
+      // 2. Title Page (Page break before heading)
       children.push(new Paragraph({
         text: book.title,
         heading: HeadingLevel.TITLE,
         alignment: AlignmentType.CENTER,
+        pageBreakBefore: true,
         spacing: { before: 2400, after: 200 },
       }))
       if (book.subtitle) {
@@ -119,7 +121,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         spacing: { before: 1800 },
         children: [new TextRun({ text: 'DOMINION WRITER PUBLISHING', size: 18, color: '888888' })],
       }))
-      children.push(new Paragraph({ text: '', pageBreakBefore: true }))
 
       // 3. Copyright Page (KDP Standard: first left-facing page after Title)
       const copyrightFm = book.frontMatter?.find((fm: any) => fm.type === 'copyright_page')
@@ -140,6 +141,7 @@ Printed in the United States of America
       children.push(new Paragraph({
         text: 'Copyright Information',
         heading: HeadingLevel.HEADING_2,
+        pageBreakBefore: true,
         spacing: { before: 1000, after: 300 },
       }))
       copyrightText.split('\n\n').forEach(paragraph => {
@@ -150,7 +152,6 @@ Printed in the United States of America
           }))
         }
       })
-      children.push(new Paragraph({ text: '', pageBreakBefore: true }))
 
       // 4. Other Front Matter (Dedication, Preface, Acknowledgements)
       book.frontMatter
@@ -160,6 +161,7 @@ Printed in the United States of America
           children.push(new Paragraph({
             text: label,
             heading: HeadingLevel.HEADING_1,
+            pageBreakBefore: true,
             alignment: fm.type === 'dedication' ? AlignmentType.CENTER : AlignmentType.LEFT,
             spacing: { before: fm.type === 'dedication' ? 2400 : 800, after: 400 },
           }))
@@ -174,13 +176,13 @@ Printed in the United States of America
               }))
             }
           })
-          children.push(new Paragraph({ text: '', pageBreakBefore: true }))
         })
 
       // 5. Dynamic Table of Contents (Estimated page numbers)
       children.push(new Paragraph({
         text: 'Table of Contents',
         heading: HeadingLevel.HEADING_1,
+        pageBreakBefore: true,
         spacing: { before: 800, after: 400 },
       }))
       
@@ -218,13 +220,13 @@ Printed in the United States of America
           ],
         }))
       }
-      children.push(new Paragraph({ text: '', pageBreakBefore: true }))
 
       // 6. Chapters (Body Matter)
       book.chapters?.forEach((ch: any) => {
         children.push(new Paragraph({
           text: ch.title,
           heading: HeadingLevel.HEADING_1,
+          pageBreakBefore: true,
           spacing: { before: 800, after: 400 },
         }))
         const text = stripHtml(ch.content || '')
@@ -239,7 +241,6 @@ Printed in the United States of America
             }))
           }
         })
-        children.push(new Paragraph({ text: '', pageBreakBefore: true }))
       })
 
       // 7. Back Matter - Bibliography (with 0.5 in / 720 dxa hanging indent)
@@ -247,6 +248,7 @@ Printed in the United States of America
         children.push(new Paragraph({
           text: 'Bibliography',
           heading: HeadingLevel.HEADING_1,
+          pageBreakBefore: true,
           spacing: { before: 800, after: 400 },
         }))
         
@@ -257,23 +259,23 @@ Printed in the United States of America
 
         sortedBib.forEach((entry: any) => {
           children.push(new Paragraph({
-            text: entry.citationText,
+            text: cleanAiContent(entry.citationText),
             alignment: AlignmentType.JUSTIFIED,
-            indent: { left: 720, hanging: 720 }, // Hanging indent: 0.5 inches
+            indent: { left: 720, hanging: 720 }, // Hanging indent: 0.5 inches (1.27 cm)
             spacing: { after: 160 },
           }))
         })
-        children.push(new Paragraph({ text: '', pageBreakBefore: true }))
       }
 
       // 8. Back Matter - Other items (About the Author, Afterword)
       book.backMatter
-        ?.filter((bm: any) => bm.type !== 'back_cover')
+        ?.filter((bm: any) => bm.type !== 'back_cover' && bm.type !== 'bibliography')
         .forEach((bm: any) => {
           const label = bm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
           children.push(new Paragraph({
             text: label,
             heading: HeadingLevel.HEADING_1,
+            pageBreakBefore: true,
             spacing: { before: 800, after: 400 },
           }))
           const text = stripHtml(bm.content || '')
@@ -286,7 +288,6 @@ Printed in the United States of America
               }))
             }
           })
-          children.push(new Paragraph({ text: '', pageBreakBefore: true }))
         })
 
       // Construct document with running headers and footers (page numbers)
@@ -379,12 +380,12 @@ Printed in the United States of America
         ?.filter((fm: any) => !['cover_page', 'half_title', 'title_page', 'copyright_page'].includes(fm.type))
         .forEach((fm: any) => {
           const label = fm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-          epubContent.push({ title: label, data: `<h2>${label}</h2>${fm.content || ''}` })
+          epubContent.push({ title: label, data: `<h2>${label}</h2>${cleanAiContent(fm.content || '')}` })
         })
 
       // 4. Chapters
       book.chapters?.forEach((ch: any) => {
-        epubContent.push({ title: ch.title, data: `<h2>${ch.title}</h2>${ch.content || ''}` })
+        epubContent.push({ title: ch.title, data: `<h2>${ch.title}</h2>${cleanAiContent(ch.content || '')}` })
       })
 
       // 5. Bibliography
@@ -395,7 +396,7 @@ Printed in the United States of America
         const bibHtml = `
           <h2>Bibliography</h2>
           <div style="margin-top: 20px;">
-            ${sortedBib.map((e: any) => `<p style="padding-left: 2em; text-indent: -2em; margin-bottom: 0.8em;">${e.citationText}</p>`).join('\n')}
+            ${sortedBib.map((e: any) => `<p style="padding-left: 2em; text-indent: -2em; margin-bottom: 0.8em;">${cleanAiContent(e.citationText)}</p>`).join('\n')}
           </div>
         `
         epubContent.push({ title: 'Bibliography', data: bibHtml })
@@ -403,10 +404,10 @@ Printed in the United States of America
 
       // 6. Back Matter
       book.backMatter
-        ?.filter((bm: any) => bm.type !== 'back_cover')
+        ?.filter((bm: any) => bm.type !== 'back_cover' && bm.type !== 'bibliography')
         .forEach((bm: any) => {
           const label = bm.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-          epubContent.push({ title: label, data: `<h2>${label}</h2>${bm.content || ''}` })
+          epubContent.push({ title: label, data: `<h2>${label}</h2>${cleanAiContent(bm.content || '')}` })
         })
 
       const epubOptions = {
@@ -419,7 +420,7 @@ Printed in the United States of America
 
       const buffer = await Epub(epubOptions, [])
       
-      return new NextResponse(buffer, {
+      return new NextResponse(buffer as any, {
         headers: {
           'Content-Type': 'application/epub+zip',
           'Content-Disposition': `attachment; filename="${book.title.replace(/[^a-z0-9]/gi, '_')}.epub"`
