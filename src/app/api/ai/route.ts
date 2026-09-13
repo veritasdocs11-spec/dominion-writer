@@ -14,6 +14,7 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number) {
 }
 
 async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | 'suggest') {
+  const maxTokens = task === 'draft' ? 8192 : 4096
   let fallbackKey = process.env.OPENAI_API_KEY
   if (!fallbackKey) {
     try {
@@ -30,6 +31,12 @@ async function callAI(userId: string, prompt: string, task: 'draft' | 'edit' | '
   let keys: any[] = []
   try {
     keys = await db.apiKey.findMany({ where: { userId } })
+    if (keys.length === 0 && userId.includes('@')) {
+      const user = await db.user.findByEmail(userId)
+      if (user?.id) {
+        keys = await db.apiKey.findMany({ where: { userId: user.id } })
+      }
+    }
   } catch (e) {
     console.warn('Could not fetch user API keys, falling back to system key:', e)
   }

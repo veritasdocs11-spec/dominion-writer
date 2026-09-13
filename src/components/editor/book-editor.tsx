@@ -154,7 +154,7 @@ export function BookEditor({ bookId }: { bookId: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<'chapters' | 'frontmatter' | 'backmatter'>('chapters')
-  const [showTocPanel, setShowTocPanel] = useState(true)
+  const [showTocPanel, setShowTocPanel] = useState(false)
   const [workspaceTheme, setWorkspaceTheme] = useState<'paper' | 'dark'>('paper')
   const [fontFamily, setFontFamily] = useState<'georgia' | 'inter'>('georgia')
   const [imageModalOpen, setImageModalOpen] = useState(false)
@@ -906,6 +906,20 @@ Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). 
           {fontFamily === 'georgia' ? 'Serif' : 'Sans'}
         </Button>
 
+        {/* Desktop TOC Drawer Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowTocPanel(p => !p)}
+          title="Toggle Dynamic Table of Contents & Citations Sidebar"
+          className={`text-xs border border-[#1E293B] h-8 px-2.5 hidden md:flex items-center gap-1.5 transition-colors ${
+            showTocPanel ? 'bg-[#1E293B] text-[#38BDF8] border-[#38BDF8]/40' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+          }`}
+        >
+          <BookMarked className="w-3.5 h-3.5" />
+          <span className="hidden lg:inline">TOC & Citations</span>
+        </Button>
+
         {/* Mobile TOC toggle */}
         <Button variant="ghost" size="icon" onClick={() => setTocOpen(!tocOpen)} className="md:hidden text-[#94A3B8] hover:text-[#F8FAFC]" title="Table of Contents">
           <BookMarked className="w-4 h-4" />
@@ -1076,10 +1090,10 @@ Example: ["Mollick, E. (2024). Co-Intelligence. Portfolio.", "Smith, J. (2023). 
           )}
 
           {/* Manuscript Reading / Writing Canvas */}
-          <div className={`flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 ${workspaceTheme === 'paper' ? 'bg-[#F1F5F9]' : 'bg-[#0B0F19]'}`}>
+          <div className={`flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 md:p-6 ${workspaceTheme === 'paper' ? 'bg-[#F1F5F9]' : 'bg-[#0B0F19]'}`}>
             {(selectedChapter || selectedMatter) ? (
               <div
-                className={`max-w-4xl mx-auto py-12 px-6 sm:px-14 min-h-[85vh] transition-all rounded-2xl ${
+                className={`w-full max-w-4xl mx-auto py-8 sm:py-12 px-4 sm:px-8 md:px-12 min-h-[85vh] transition-all rounded-2xl ${
                   workspaceTheme === 'paper'
                     ? 'bg-[#FFFFFF] text-[#0F172A] shadow-xl border border-slate-200/90'
                     : 'bg-[#0F172A] text-[#F1F5F9] shadow-2xl border border-[#1E293B]'
